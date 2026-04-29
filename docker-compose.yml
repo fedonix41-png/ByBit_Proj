@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: p2p_postgres
+    environment:
+      POSTGRES_DB: p2p_automation
+      POSTGRES_USER: p2p_user
+      POSTGRES_PASSWORD: p2p_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U p2p_user -d p2p_automation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - p2p_network
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: p2p_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://p2p_user:p2p_pass@postgres:5432/p2p_automation
+      BYBIT_API_KEY: ${BYBIT_API_KEY}
+      BYBIT_API_SECRET: ${BYBIT_API_SECRET}
+      BYBIT_TESTNET: ${BYBIT_TESTNET:-True}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY}
+      USE_AI_MOCK: ${USE_AI_MOCK:-true}
+      HOST: 0.0.0.0
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - p2p_network
+    restart: unless-stopped
+
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bot
+    container_name: p2p_telegram_bot
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://p2p_user:p2p_pass@postgres:5432/p2p_automation
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY}
+      USE_AI_MOCK: ${USE_AI_MOCK:-true}
+      BYBIT_API_KEY: ${BYBIT_API_KEY}
+      BYBIT_API_SECRET: ${BYBIT_API_SECRET}
+      BYBIT_TESTNET: ${BYBIT_TESTNET:-True}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - p2p_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  p2p_network:
+    driver: bridge

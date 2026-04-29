@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bybit P2P Automation</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Bybit P2P Automation</h1>
+            <div class="status-indicator">
+                <span id="ws-status" class="status-dot disconnected"></span>
+                <span id="ws-text">Подключение...</span>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- Balance Section -->
+            <section class="card">
+                <h2>💰 Баланс</h2>
+                <button onclick="loadBalance()" class="btn btn-secondary">Обновить</button>
+                <div id="balance-list" class="balance-list">
+                    <p class="text-muted">Нажмите "Обновить" для загрузки баланса</p>
+                </div>
+            </section>
+
+            <!-- Orders Section -->
+            <section class="card">
+                <h2>📋 Мои объявления</h2>
+                <button onclick="loadAds()" class="btn btn-secondary">Обновить</button>
+                <div id="ads-list" class="ads-list">
+                    <p class="text-muted">Нажмите "Обновить" для загрузки объявлений</p>
+                </div>
+            </section>
+
+            <!-- Trade History Section -->
+            <section class="card">
+                <h2>📜 История сделок</h2>
+                <button onclick="loadTradeHistory()" class="btn btn-secondary">Обновить</button>
+                <div id="trade-history" class="trade-history">
+                    <p class="text-muted">Нажмите "Обновить" для загрузки истории</p>
+                </div>
+            </section>
+
+            <!-- Payment Methods Section -->
+            <section class="card">
+                <h2>💳 Способы оплаты</h2>
+                <button onclick="loadPaymentMethods()" class="btn btn-secondary">Обновить</button>
+                <div id="payment-methods" class="payment-methods">
+                    <p class="text-muted">Нажмите "Обновить" для загрузки</p>
+                </div>
+            </section>
+
+            <!-- Chat Section -->
+            <section class="card full-width">
+                <h2>💬 Чат</h2>
+                <div class="chat-controls">
+                    <select id="order-select" class="select">
+                        <option value="">Выберите ордер</option>
+                    </select>
+                    <button onclick="loadChat()" class="btn btn-secondary">Загрузить чат</button>
+                    <button onclick="loadOrderDetails()" class="btn btn-secondary">🔍 Детали ордера</button>
+                    <button onclick="startMonitoring()" class="btn btn-primary">🚀 Запустить мониторинг</button>
+                </div>
+                <div id="order-details" class="order-details" style="display: none;">
+                    <h3>📊 Детали ордера</h3>
+                    <div id="order-details-content"></div>
+                    <div class="order-actions">
+                        <button onclick="confirmPayment()" class="btn btn-success">✅ Подтвердить оплату</button>
+                        <button onclick="cancelOrder()" class="btn btn-danger">❌ Отменить ордер</button>
+                    </div>
+                </div>
+                <div id="chat-messages" class="chat-messages">
+                    <p class="text-muted">Выберите ордер и загрузите чат</p>
+                </div>
+            </section>
+
+            <!-- Approval Section -->
+            <section class="card full-width approval-section" id="approval-section" style="display: none;">
+                <h2>⚠️ Требуется подтверждение</h2>
+                <div id="approval-content">
+                    <div class="approval-info">
+                        <p><strong>Ордер:</strong> <span id="approval-order"></span></p>
+                        <p><strong>Намерение:</strong> <span id="approval-intent"></span></p>
+                        <p><strong>Предлагаемый ответ:</strong></p>
+                        <div class="proposed-response" id="approval-response"></div>
+                    </div>
+                    <div class="approval-actions">
+                        <button onclick="approveAction(true)" class="btn btn-success">✓ Подтвердить</button>
+                        <button onclick="approveAction(false)" class="btn btn-danger">✗ Отклонить</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Log -->
+            <section class="card full-width">
+                <h2>📊 Журнал активности</h2>
+                <div id="activity-log" class="activity-log"></div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentRunId = null;
+        let selectedOrderId = null;
+
+        // WebSocket connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                updateStatus('connected', 'Подключено');
+                addLog('WebSocket подключен', 'success');
+            };
+            
+            ws.onclose = () => {
+                updateStatus('disconnected', 'Отключено');
+                addLog('WebSocket отключен. Переподключение через 3 сек...', 'warning');
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = (error) => {
+                addLog('Ошибка WebSocket', 'error');
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+        }
+
+        function updateStatus(status, text) {
+            const dot = document.getElementById('ws-status');
+            const textEl = document.getElementById('ws-text');
+            dot.className = `status-dot ${status}`;
+            textEl.textContent = text;
+        }
+
+        function handleWebSocketMessage(data) {
+            addLog(`${data.type}: ${JSON.stringify(data)}`, 'info');
+            
+            switch(data.type) {
+                case 'monitor_started':
+                    currentRunId = data.run_id;
+                    addLog(`Мониторинг запущен для ордера ${data.order_id}`, 'success');
+                    break;
+                    
+                case 'state_update':
+                    if (data.state.approval_required) {
+                        showApproval(data);
+                    }
+                    break;
+                    
+                case 'monitor_completed':
+                    addLog('Мониторинг завершен', 'success');
+                    hideApproval();
+                    currentRunId = null;
+                    break;
+                    
+                case 'error':
+                    addLog(`Ошибка: ${data.error}`, 'error');
+                    break;
+            }
+        }
+
+        function showApproval(data) {
+            const section = document.getElementById('approval-section');
+            document.getElementById('approval-order').textContent = data.state.order_id;
+            document.getElementById('approval-intent').textContent = data.state.intent || 'неизвестно';
+            document.getElementById('approval-response').textContent = data.state.proposed_response || '';
+            section.style.display = 'block';
+            currentRunId = data.run_id;
+        }
+
+        function hideApproval() {
+            document.getElementById('approval-section').style.display = 'none';
+        }
+
+        async function loadBalance() {
+            try {
+                const response = await fetch('/api/balance');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const html = result.data.map(b => `
+                        <div class="balance-item">
+                            <span class="currency">${b.currency}</span>
+                            <span class="amount">${b.available.toFixed(2)}</span>
+                            <span class="text-muted">доступно</span>
+                        </div>
+                    `).join('');
+                    document.getElementById('balance-list').innerHTML = html;
+                    addLog('Баланс обновлен', 'success');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки баланса: ${error}`, 'error');
+            }
+        }
+
+        async function loadAds() {
+            try {
+                const response = await fetch('/api/ads');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const select = document.getElementById('order-select');
+                    select.innerHTML = '<option value="">Выберите ордер</option>' +
+                        result.data.map(ad => `
+                            <option value="${ad.order_id}">${ad.order_id} - ${ad.side} ${ad.amount} ${ad.crypto} @ ${ad.price} ${ad.currency}</option>
+                        `).join('');
+                    
+                    const html = result.data.map(ad => `
+                        <div class="ad-item">
+                            <div class="ad-header">
+                                <span class="badge ${ad.side === 'SELL' ? 'badge-sell' : 'badge-buy'}">${ad.side}</span>
+                                <span class="order-id">${ad.order_id}</span>
+                                <span class="status">${ad.status}</span>
+                            </div>
+                            <div class="ad-details">
+                                ${ad.amount} ${ad.crypto} @ ${ad.price} ${ad.currency}
+                            </div>
+                        </div>
+                    `).join('');
+                    document.getElementById('ads-list').innerHTML = html;
+                    addLog('Объявления обновлены', 'success');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки объявлений: ${error}`, 'error');
+            }
+        }
+
+        async function loadChat() {
+            const orderId = document.getElementById('order-select').value;
+            if (!orderId) {
+                addLog('Выберите ордер', 'warning');
+                return;
+            }
+            
+            selectedOrderId = orderId;
+            
+            try {
+                const response = await fetch(`/api/chat/${orderId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const html = result.data.map(msg => `
+                        <div class="message ${msg.sender}">
+                            <div class="message-header">
+                                <span class="sender">${msg.sender === 'me' ? 'Вы' : 'Контрагент'}</span>
+                                <span class="timestamp">${new Date(msg.timestamp).toLocaleString('ru-RU')}</span>
+                            </div>
+                            <div class="message-text">${msg.text}</div>
+                        </div>
+                    `).join('');
+                    document.getElementById('chat-messages').innerHTML = html || '<p class="text-muted">Нет сообщений</p>';
+                    addLog('Чат загружен', 'success');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки чата: ${error}`, 'error');
+            }
+        }
+
+        async function startMonitoring() {
+            const orderId = document.getElementById('order-select').value;
+            if (!orderId) {
+                addLog('Выберите ордер', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/start_monitor', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({order_id: orderId})
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentRunId = result.run_id;
+                    addLog(`Мониторинг запущен: ${result.run_id}`, 'success');
+                }
+            } catch (error) {
+                addLog(`Ошибка запуска мониторинга: ${error}`, 'error');
+            }
+        }
+
+        async function approveAction(approved) {
+            if (!currentRunId) {
+                addLog('Нет активного запроса на подтверждение', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/approve/${currentRunId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({approved: approved})
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog(`Действие ${approved ? 'подтверждено' : 'отклонено'}`, 'success');
+                    hideApproval();
+                }
+            } catch (error) {
+                addLog(`Ошибка подтверждения: ${error}`, 'error');
+            }
+        }
+
+        async function loadTradeHistory() {
+            try {
+                const response = await fetch('/api/trade_history');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const html = result.data.map(trade => `
+                        <div class="trade-item">
+                            <div class="trade-header">
+                                <span class="badge ${trade.side === 'SELL' ? 'badge-sell' : 'badge-buy'}">${trade.side}</span>
+                                <span class="order-id">${trade.order_id}</span>
+                                <span class="status">${trade.status}</span>
+                            </div>
+                            <div class="trade-details">
+                                ${trade.amount} ${trade.crypto} @ ${trade.price} ${trade.currency}
+                            </div>
+                        </div>
+                    `).join('');
+                    document.getElementById('trade-history').innerHTML = html || '<p class="text-muted">Нет истории</p>';
+                    addLog('История сделок загружена', 'success');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки истории: ${error}`, 'error');
+            }
+        }
+
+        async function loadPaymentMethods() {
+            try {
+                const response = await fetch('/api/payment_methods');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const html = result.data.map(method => `
+                        <div class="payment-method">
+                            <span class="method-name">${method.name}</span>
+                            <span class="method-type">${method.type}</span>
+                        </div>
+                    `).join('');
+                    document.getElementById('payment-methods').innerHTML = html;
+                    addLog('Способы оплаты загружены', 'success');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки способов оплаты: ${error}`, 'error');
+            }
+        }
+
+        async function loadOrderDetails() {
+            const orderId = document.getElementById('order-select').value;
+            if (!orderId) {
+                addLog('Выберите ордер', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/order/${orderId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const details = result.data;
+                    const html = `
+                        <p><strong>Ордер:</strong> ${details.order_id}</p>
+                        <p><strong>Статус:</strong> ${details.status}</p>
+                        <p><strong>Тип:</strong> ${details.side}</p>
+                        <p><strong>Сумма:</strong> ${details.amount} ${details.crypto}</p>
+                        <p><strong>Цена:</strong> ${details.price} ${details.currency}</p>
+                        <p><strong>Способ оплаты:</strong> ${details.payment_method}</p>
+                        <p><strong>Контрагент:</strong> ${details.counterparty}</p>
+                    `;
+                    document.getElementById('order-details-content').innerHTML = html;
+                    document.getElementById('order-details').style.display = 'block';
+                    addLog('Детали ордера загружены', 'success');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки деталей: ${error}`, 'error');
+            }
+        }
+
+        async function confirmPayment() {
+            const orderId = document.getElementById('order-select').value;
+            if (!orderId) {
+                addLog('Выберите ордер', 'warning');
+                return;
+            }
+            
+            if (!confirm('Подтвердить оплату и отправить криптовалюту?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/order/${orderId}/confirm_payment`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog('Оплата подтверждена!', 'success');
+                } else {
+                    addLog('Ошибка подтверждения оплаты', 'error');
+                }
+            } catch (error) {
+                addLog(`Ошибка: ${error}`, 'error');
+            }
+        }
+
+        async function cancelOrder() {
+            const orderId = document.getElementById('order-select').value;
+            if (!orderId) {
+                addLog('Выберите ордер', 'warning');
+                return;
+            }
+            
+            if (!confirm('Отменить ордер?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/order/${orderId}/cancel`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog('Ордер отменён', 'success');
+                    document.getElementById('order-details').style.display = 'none';
+                } else {
+                    addLog('Ошибка отмены ордера', 'error');
+                }
+            } catch (error) {
+                addLog(`Ошибка: ${error}`, 'error');
+            }
+        }
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('activity-log');
+            const time = new Date().toLocaleTimeString('ru-RU');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-time">${time}</span> ${message}`;
+            log.insertBefore(entry, log.firstChild);
+            
+            // Keep only last 50 entries
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        // Initialize
+        connectWebSocket();
+        loadBalance();
+        loadAds();
+    </script>
+</body>
+</html>
