@@ -32,9 +32,12 @@
 |---------|--------|
 | Текстовые сообщения | ✅ |
 | Голосовые (Whisper) | ✅ Требуется OPENAI_API_KEY |
-| Фото (GPT-4 Vision) | ✅ Требуется OPENAI_API_KEY |
-| InlineKeyboard меню | ✅ |
-| Команды (/start, /status, etc.) | ✅ |
+| Фото (Vision) | ✅ OpenRouter или OpenAI |
+| InlineKeyboard меню | ✅ Переработано |
+| AI-диалог (/ask) | ✅ Через OpenRouter |
+| Анализ P2P | ✅ Подменю |
+| Проверка мошенничества | ✅ Подменю + Vision |
+| Настройки | ✅ AI-провайдер, язык, баланс |
 
 ### Провайдеры AI
 

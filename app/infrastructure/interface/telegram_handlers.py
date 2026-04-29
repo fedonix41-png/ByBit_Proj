@@ -6,7 +6,7 @@ the P2P bridge for processing.
 """
 import base64
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -28,21 +28,133 @@ Respond concisely in 2-3 sentences.
 """
 
 
+def _get_vision_client() -> Tuple[Optional[object], Optional[str]]:
+    """Get vision client - prefer OpenRouter, fallback to OpenAI."""
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if openrouter_key:
+        from openai import OpenAI
+        return OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_key
+        ), "openai/gpt-4o"
+    
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        from openai import OpenAI
+        return OpenAI(api_key=openai_key), "gpt-4o"
+    
+    logger.warning("No vision API key configured (OPENROUTER_API_KEY or OPENAI_API_KEY)")
+    return None, None
+
+
 def _get_openai_client():
     """Get OpenAI client from existing AI agents setup."""
     from openai import OpenAI
     from app.config import USE_AI_MOCK
-    import os
     
     if USE_AI_MOCK:
         return None
     
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        logger.warning("OPENAI_API_KEY not set, voice/image features disabled")
+        logger.warning("OPENAI_API_KEY not set, voice features disabled")
         return None
     
     return OpenAI(api_key=api_key)
+
+
+def set_ai_mode(context: ContextTypes.DEFAULT_TYPE, enabled: bool):
+    """Enable/disable AI chat mode."""
+    context.user_data['ai_mode'] = enabled
+
+
+async def handle_ai_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle AI question via OpenRouter."""
+    user_message = update.message.text
+    user_id = update.message.from_user.id
+    
+    if not context.user_data.get('ai_mode'):
+        return
+    
+    from app.ai_agents.openrouter_adapter import OpenRouterClient
+    client = OpenRouterClient()
+    
+    if not client.is_configured:
+        await update.message.reply_text(
+            "⚠️ OpenRouter не настроен. Добавьте OPENROUTER_API_KEY в .env"
+        )
+        return
+    
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id,
+        action="typing"
+    )
+    
+    response = await client.generate(
+        prompt=user_message,
+        system="Ты - помощник для P2P торговли криптовалютой. Отвечай кратко и по делу на русском языке. Если вопрос связан с торговлей, давай практические советы."
+    )
+    
+    await update.message.reply_text(f"🤖 {response}")
+
+
+async def handle_fraud_check(update: Update, context: ContextTypes.DEFAULT_TYPE, photo_path: str = None):
+    """Handle fraud analysis request."""
+    from app.ai_agents.fraud_analyzer import FraudAnalyzer
+    from app.ai_agents.openrouter_adapter import OpenRouterClient
+    
+    analyzer = FraudAnalyzer()
+    
+    analysis_text = None
+    
+    if photo_path:
+        vision_client, vision_model = _get_vision_client()
+        
+        if vision_client and vision_model:
+            try:
+                with open(photo_path, "rb") as img_file:
+                    base64_image = base64.b64encode(img_file.read()).decode("utf-8")
+                
+                fraud_prompt = """
+Проанализируй это изображение на предмет признаков мошенничества:
+1. Проверь, выглядит ли платёж реальным
+2. Есть ли признаки подделки (следы редактирования, неестественные элементы)
+3. Соответствуют ли данные формату настоящего платёжного документа
+
+Ответь кратко в формате:
+- Подозрительные признаки: (список или "нет")
+- Вердикт: (реальный/подозрительный/требует проверки)
+"""
+                
+                vision_response = vision_client.chat.completions.create(
+                    model=vision_model,
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": fraud_prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        ]
+                    }],
+                    max_tokens=500
+                )
+                analysis_text = vision_response.choices[0].message.content.strip()
+                logger.info(f"Fraud vision analysis: {analysis_text[:100]}...")
+                
+            except Exception as e:
+                logger.warning(f"Fraud vision analysis failed: {e}")
+                analysis_text = "⚠️ Не удалось проанализировать изображение"
+        else:
+            analysis_text = "⚠️ Vision API не настроен. Добавьте OPENROUTER_API_KEY или OPENAI_API_KEY в .env"
+    
+    result_msg = "🔍 **Анализ на мошенничество**\n\n"
+    if analysis_text:
+        result_msg += f"{analysis_text}\n\n"
+    else:
+        result_msg += "Изображение не предоставлено для анализа.\n\n"
+    
+    result_msg += "Для полной проверки введите данные платежа командой /check_payment"
+    
+    await update.message.reply_text(result_msg)
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -52,6 +164,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.message.from_user.username
     
     logger.info(f"Text from user {user_id}: {user_message[:50]}...")
+    
+    if context.user_data.get('ai_mode'):
+        await handle_ai_question(update, context)
+        return
     
     try:
         response = await p2p_bridge.process_text_message(
@@ -74,7 +190,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     openai_client = _get_openai_client()
     if not openai_client:
-        await update.message.reply_text("⚠️ Голосовые сообщения не поддерживаются (требуется OpenAI API ключ)")
+        await update.message.reply_text("⚠️ Голосовые сообщения не поддерживаются (требуется OpenAI API ключ для Whisper)")
         return
     
     try:
@@ -114,7 +230,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     logger.info(f"Photo from user {user_id}")
     
-    openai_client = _get_openai_client()
+    vision_client, vision_model = _get_vision_client()
     
     try:
         photo = update.message.photo[-1]
@@ -124,13 +240,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await file.download_to_drive(photo_path)
         
         analysis = None
-        if openai_client:
+        if vision_client and vision_model:
             try:
                 with open(photo_path, "rb") as img_file:
                     base64_image = base64.b64encode(img_file.read()).decode("utf-8")
                 
-                vision_response = openai_client.chat.completions.create(
-                    model="gpt-4o",
+                vision_response = vision_client.chat.completions.create(
+                    model=vision_model,
                     messages=[{
                         "role": "user",
                         "content": [

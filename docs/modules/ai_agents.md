@@ -318,3 +318,54 @@ result = await analyzer.process({
 #     "recommendation": "approve"  # approve/manual_review/reject
 # }
 ```
+
+---
+
+## Использование в Telegram-боте
+
+### OpenRouter для AI-диалога
+
+Бот использует `OpenRouterClient` для обработки вопросов пользователей:
+
+```python
+from app.ai_agents.openrouter_adapter import OpenRouterClient
+
+client = OpenRouterClient()
+response = await client.generate(
+    prompt="Как проверить контрагента?",
+    system="Ты - помощник для P2P торговли..."
+)
+```
+
+### Vision через OpenRouter
+
+Для анализа изображений (скриншоты платежей, проверка мошенничества) бот использует OpenRouter с vision-моделью:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.environ["OPENROUTER_API_KEY"]
+)
+
+response = client.chat.completions.create(
+    model="openai/gpt-4o",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Анализируй изображение..."},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+        ]
+    }]
+)
+```
+
+### FraudAnalyzer с OpenRouter
+
+`FraudAnalyzer` может использовать OpenRouter как провайдер:
+
+```python
+analyzer = FraudAnalyzer(provider="openrouter")
+result = await analyzer.process(payment_data)
+```

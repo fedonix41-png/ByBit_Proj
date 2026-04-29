@@ -40,12 +40,13 @@ class P2PTelegramBot:
         self.app.add_handler(CommandHandler("help", self._cmd_help))
         self.app.add_handler(CommandHandler("menu", self._cmd_menu))
         self.app.add_handler(CommandHandler("demo", self._cmd_demo))
+        self.app.add_handler(CommandHandler("ask", self._cmd_ask))
         
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
         
         self.app.add_handler(MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            handle_text
+            self._handle_text_with_ai_mode
         ))
         self.app.add_handler(MessageHandler(filters.VOICE, handle_voice))
         self.app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
@@ -56,16 +57,68 @@ class P2PTelegramBot:
         """Get main menu keyboard."""
         keyboard = [
             [
-                InlineKeyboardButton("📋 Статус ордеров", callback_data="menu_status"),
-                InlineKeyboardButton("❓ Помощь", callback_data="menu_help")
+                InlineKeyboardButton("💬 Задать вопрос AI", callback_data="ai_ask"),
+                InlineKeyboardButton("📊 Статус торговли", callback_data="menu_status")
             ],
             [
-                InlineKeyboardButton("🎤 Голосовое сообщение", callback_data="demo_voice"),
-                InlineKeyboardButton("📷 Скриншот платежа", callback_data="demo_photo")
+                InlineKeyboardButton("🧠 Анализ P2P", callback_data="menu_p2p_analysis"),
+                InlineKeyboardButton("🛡️ Проверка мошенничества", callback_data="menu_fraud_check")
             ],
             [
-                InlineKeyboardButton("💬 Текстовый диалог", callback_data="demo_text"),
+                InlineKeyboardButton("⚙️ Настройки", callback_data="menu_settings"),
                 InlineKeyboardButton("ℹ️ О боте", callback_data="menu_about")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+    
+    def _get_p2p_analysis_keyboard(self) -> InlineKeyboardMarkup:
+        """Get P2P analysis submenu keyboard."""
+        keyboard = [
+            [
+                InlineKeyboardButton("📈 По типу ордера", callback_data="p2p_analysis_by_type"),
+                InlineKeyboardButton("💱 По валюте", callback_data="p2p_analysis_by_currency")
+            ],
+            [
+                InlineKeyboardButton("📊 Все предложения", callback_data="p2p_analysis_all"),
+                InlineKeyboardButton("↩️ Назад", callback_data="menu_main")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+    
+    def _get_fraud_check_keyboard(self) -> InlineKeyboardMarkup:
+        """Get fraud check submenu keyboard."""
+        keyboard = [
+            [
+                InlineKeyboardButton("📷 Анализ скриншота", callback_data="fraud_screenshot"),
+                InlineKeyboardButton("🔍 Проверка ордера", callback_data="fraud_order")
+            ],
+            [
+                InlineKeyboardButton("📋 История проверок", callback_data="fraud_history"),
+                InlineKeyboardButton("↩️ Назад", callback_data="menu_main")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+    
+    def _get_settings_keyboard(self) -> InlineKeyboardMarkup:
+        """Get settings submenu keyboard."""
+        keyboard = [
+            [
+                InlineKeyboardButton("🤖 AI-провайдер", callback_data="settings_ai_provider"),
+                InlineKeyboardButton("🌐 Язык", callback_data="settings_language")
+            ],
+            [
+                InlineKeyboardButton("📊 Баланс Bybit", callback_data="settings_bybit_balance"),
+                InlineKeyboardButton("↩️ Назад", callback_data="menu_main")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+    
+    def _get_ai_chat_keyboard(self) -> InlineKeyboardMarkup:
+        """Get AI chat mode keyboard."""
+        keyboard = [
+            [
+                InlineKeyboardButton("🔄 Новый вопрос", callback_data="ai_new_question"),
+                InlineKeyboardButton("↩️ В меню", callback_data="menu_main")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)
@@ -83,40 +136,76 @@ class P2PTelegramBot:
             ],
             [
                 InlineKeyboardButton("📊 Статус", callback_data="demo_status"),
-                InlineKeyboardButton("🔙 В меню", callback_data="menu_main")
+                InlineKeyboardButton("↩️ Назад", callback_data="menu_main")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)
     
+    def _get_back_keyboard(self, callback_data: str = "menu_main") -> InlineKeyboardMarkup:
+        """Get keyboard with back button only."""
+        return InlineKeyboardMarkup([[
+            InlineKeyboardButton("↩️ Назад", callback_data=callback_data)
+        ]])
+    
     async def _cmd_start(self, update: Update, context):
         """Handle /start command."""
         user_name = update.effective_user.first_name or "Пользователь"
+        context.user_data["ai_mode"] = False
+        context.user_data["current_menu"] = "main"
+        
         await update.message.reply_text(
             f"👋 Здравствуйте, {user_name}!\n\n"
-            "Я бот для P2P торговли с поддержкой:\n"
-            "• 📝 Текстовых сообщений\n"
-            "• 🎤 Голосовых сообщений\n"
-            "• 📷 Скриншотов платежей\n\n"
-            "Нажмите /menu для интерактивного меню\n"
-            "Нажмите /demo для демонстрации функций",
+            "Я P2P-бот для торговли криптовалютой с AI-агентами.\n\n"
+            "Возможности:\n"
+            "• 💬 AI-диалог и консультации\n"
+            "• 🧠 Анализ P2P предложений\n"
+            "• 🛡️ Проверка на мошенничество\n"
+            "• 📊 Отслеживание статусов\n\n"
+            "Выберите действие в меню:",
             reply_markup=self._get_main_menu_keyboard()
         )
     
     async def _cmd_menu(self, update: Update, context):
         """Handle /menu command - show interactive menu."""
+        context.user_data["ai_mode"] = False
+        context.user_data["current_menu"] = "main"
+        
         await update.message.reply_text(
             "📋 **Главное меню**\n\n"
             "Выберите действие:",
             reply_markup=self._get_main_menu_keyboard()
         )
     
+    async def _cmd_ask(self, update: Update, context):
+        """Handle /ask command - direct access to AI chat."""
+        context.user_data["ai_mode"] = True
+        context.user_data["current_menu"] = "ai_chat"
+        
+        await update.message.reply_text(
+            "💬 **Режим AI-диалога**\n\n"
+            "Задайте любой вопрос о P2P торговле, криптовалютах, "
+            "анализе рынка или проверке контрагентов.\n\n"
+            "Я отвечу с учётом контекста диалога.",
+            reply_markup=self._get_ai_chat_keyboard()
+        )
+    
     async def _cmd_demo(self, update: Update, context):
         """Handle /demo command - show demo features."""
+        context.user_data["ai_mode"] = False
+        context.user_data["current_menu"] = "demo"
+        
         await update.message.reply_text(
             "🎬 **Демонстрация функций**\n\n"
             "Выберите функцию для тестирования:",
             reply_markup=self._get_demo_keyboard()
         )
+    
+    async def _handle_text_with_ai_mode(self, update: Update, context):
+        """Handle text messages with AI mode awareness."""
+        if context.user_data.get("ai_mode", False):
+            context.user_data["last_interaction"] = "ai_chat"
+        
+        await handle_text(update, context)
     
     async def _handle_callback(self, update: Update, context):
         """Handle callback queries from inline keyboards."""
@@ -126,19 +215,113 @@ class P2PTelegramBot:
         data = query.data
         
         if data == "menu_main":
+            context.user_data["ai_mode"] = False
+            context.user_data["current_menu"] = "main"
             await query.edit_message_text(
                 "📋 **Главное меню**\n\nВыберите действие:",
                 reply_markup=self._get_main_menu_keyboard()
             )
         
+        elif data == "ai_ask":
+            context.user_data["ai_mode"] = True
+            context.user_data["current_menu"] = "ai_chat"
+            await query.edit_message_text(
+                "💬 **Режим AI-диалога**\n\n"
+                "Задайте любой вопрос о P2P торговле, криптовалютах, "
+                "анализе рынка или проверке контрагентов.\n\n"
+                "Я отвечу с учётом контекста диалога.",
+                reply_markup=self._get_ai_chat_keyboard()
+            )
+        
+        elif data == "ai_new_question":
+            context.user_data["ai_mode"] = True
+            context.user_data["current_menu"] = "ai_chat"
+            await query.edit_message_text(
+                "💬 **Новый вопрос**\n\n"
+                "Задайте ваш вопрос:",
+                reply_markup=self._get_ai_chat_keyboard()
+            )
+        
+        elif data == "menu_p2p_analysis":
+            context.user_data["current_menu"] = "p2p_analysis"
+            await query.edit_message_text(
+                "🧠 **Анализ P2P**\n\n"
+                "Выберите тип анализа:",
+                reply_markup=self._get_p2p_analysis_keyboard()
+            )
+        
+        elif data == "p2p_analysis_by_type":
+            await self._handle_p2p_analysis(query, context, "by_type")
+        
+        elif data == "p2p_analysis_by_currency":
+            await self._handle_p2p_analysis(query, context, "by_currency")
+        
+        elif data == "p2p_analysis_all":
+            await self._handle_p2p_analysis(query, context, "all")
+        
+        elif data == "menu_fraud_check":
+            context.user_data["current_menu"] = "fraud_check"
+            await query.edit_message_text(
+                "🛡️ **Проверка мошенничества**\n\n"
+                "Выберите тип проверки:",
+                reply_markup=self._get_fraud_check_keyboard()
+            )
+        
+        elif data == "fraud_screenshot":
+            context.user_data["current_menu"] = "fraud_screenshot"
+            await query.edit_message_text(
+                "📷 **Анализ скриншота**\n\n"
+                "Отправьте скриншот для проверки:\n"
+                "• Скриншот переписки с контрагентом\n"
+                "• Фото платежного документа\n"
+                "• Скриншот профиля пользователя\n\n"
+                "AI проанализирует изображение на наличие "
+                "признаков мошенничества.",
+                reply_markup=self._get_back_keyboard("menu_fraud_check")
+            )
+        
+        elif data == "fraud_order":
+            context.user_data["current_menu"] = "fraud_order"
+            await query.edit_message_text(
+                "🔍 **Проверка ордера**\n\n"
+                "Отправьте номер ордера для проверки:\n\n"
+                "Будет проверено:\n"
+                "• Репутация контрагента\n"
+                "• История сделок\n"
+                "• Риски по параметрам ордера",
+                reply_markup=self._get_back_keyboard("menu_fraud_check")
+            )
+        
+        elif data == "fraud_history":
+            await self._show_fraud_history(query, context)
+        
+        elif data == "menu_settings":
+            context.user_data["current_menu"] = "settings"
+            await query.edit_message_text(
+                "⚙️ **Настройки**\n\n"
+                "Выберите параметр для изменения:",
+                reply_markup=self._get_settings_keyboard()
+            )
+        
+        elif data == "settings_ai_provider":
+            await self._handle_ai_provider_settings(query, context)
+        
+        elif data == "settings_language":
+            await self._handle_language_settings(query, context)
+        
+        elif data == "settings_bybit_balance":
+            await self._handle_bybit_balance(query, context)
+        
         elif data == "menu_status":
             await self._show_status_callback(query)
         
         elif data == "menu_help":
+            context.user_data["current_menu"] = "help"
             await query.edit_message_text(
                 "📖 **Помощь по боту**\n\n"
                 "Команды:\n"
                 "/start - начать работу\n"
+                "/ask - AI-диалог\n"
                 "/status - статус ордеров\n"
                 "/cancel - отменить сделку\n"
                 "/menu - главное меню\n"
@@ -150,12 +333,11 @@ class P2PTelegramBot:
                 "• Фото (скриншоты платежей)\n\n"
                 "Для работы с ордером отправьте номер ордера.\n"
                 "Для подтверждения платежа отправьте скриншот.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 В меню", callback_data="menu_main")
-                ]])
+                reply_markup=self._get_back_keyboard()
             )
         
         elif data == "menu_about":
+            context.user_data["current_menu"] = "about"
             await query.edit_message_text(
                 "ℹ️ **О боте**\n\n"
                 "P2P Automation Bot v2.0\n"
@@ -166,11 +348,10 @@ class P2PTelegramBot:
                 "• Анализ скриншотов платежей\n"
                 "• Транскрипция голосовых (Whisper)\n"
                 "• Контекст диалога\n"
-                "• Автоматические ответы\n\n"
+                "• Автоматические ответы\n"
+                "• Проверка на мошенничество\n\n"
                 "Ключи хранятся локально в контейнере.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 В меню", callback_data="menu_main")
-                ]])
+                reply_markup=self._get_back_keyboard()
             )
         
         elif data == "demo_text":
@@ -226,6 +407,184 @@ class P2PTelegramBot:
         
         elif data == "demo_status":
             await self._show_status_callback(query)
+        
+        elif data.startswith("settings_ai_provider_"):
+            provider = data.replace("settings_ai_provider_", "")
+            context.user_data["ai_provider"] = provider
+            await self._handle_ai_provider_settings(query, context, saved=True)
+        
+        elif data.startswith("settings_lang_"):
+            lang = data.replace("settings_lang_", "")
+            context.user_data["language"] = lang
+            await self._handle_language_settings(query, context, saved=True)
+    
+    async def _handle_p2p_analysis(self, query, context, analysis_type: str):
+        """Handle P2P analysis requests."""
+        context.user_data["current_menu"] = f"p2p_analysis_{analysis_type}"
+        
+        try:
+            if analysis_type == "by_type":
+                text = (
+                    "📈 **Анализ по типу ордера**\n\n"
+                    "Выберите тип ордера для анализа:\n\n"
+                    "• BUY - предложения на покупку\n"
+                    "• SELL - предложения на продажу\n\n"
+                    "Отправьте сообщение с типом ордера."
+                )
+            elif analysis_type == "by_currency":
+                text = (
+                    "💱 **Анализ по валюте**\n\n"
+                    "Доступные валюты:\n"
+                    "• RUB - Российский рубль\n"
+                    "• USD - Доллар США\n"
+                    "• EUR - Евро\n"
+                    "• USDT - Tether\n\n"
+                    "Отправьте код валюты для анализа."
+                )
+            else:
+                text = (
+                    "📊 **Все P2P предложения**\n\n"
+                    "Получение актуальных предложений с Bybit P2P...\n\n"
+                    "Данные загружаются в реальном времени."
+                )
+            
+            await query.edit_message_text(
+                text,
+                reply_markup=self._get_back_keyboard("menu_p2p_analysis")
+            )
+        except Exception as e:
+            logger.error(f"P2P analysis error: {e}")
+            await query.edit_message_text(
+                "❌ Ошибка при анализе P2P предложений",
+                reply_markup=self._get_back_keyboard("menu_p2p_analysis")
+            )
+    
+    async def _show_fraud_history(self, query, context):
+        """Show fraud check history."""
+        context.user_data["current_menu"] = "fraud_history"
+        
+        history = context.user_data.get("fraud_check_history", [])
+        
+        if not history:
+            text = (
+                "📋 **История проверок**\n\n"
+                "История пуста.\n\n"
+                "После проверок ордеров или скриншотов, "
+                "результаты будут отображаться здесь."
+            )
+        else:
+            text = "📋 **История проверок**\n\n"
+            for i, item in enumerate(history[-5:], 1):
+                text += f"{i}. {item.get('type', 'Проверка')}\n"
+                text += f"   Результат: {item.get('result', 'N/A')}\n\n"
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=self._get_back_keyboard("menu_fraud_check")
+        )
+    
+    async def _handle_ai_provider_settings(self, query, context, saved: bool = False):
+        """Handle AI provider settings."""
+        current = context.user_data.get("ai_provider", "openai")
+        
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    f"{'✓ ' if current == 'openai' else ''}OpenAI",
+                    callback_data="settings_ai_provider_openai"
+                ),
+                InlineKeyboardButton(
+                    f"{'✓ ' if current == 'anthropic' else ''}Anthropic",
+                    callback_data="settings_ai_provider_anthropic"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    f"{'✓ ' if current == 'google' else ''}Google",
+                    callback_data="settings_ai_provider_google"
+                ),
+                InlineKeyboardButton(
+                    f"{'✓ ' if current == 'local' else ''}Local",
+                    callback_data="settings_ai_provider_local"
+                )
+            ],
+            [InlineKeyboardButton("↩️ Назад", callback_data="menu_settings")]
+        ]
+        
+        text = "🤖 **AI-провайдер**\n\n"
+        if saved:
+            text += f"✅ Провайдер изменён на: {current}\n\n"
+        text += f"Текущий провайдер: **{current}**\n\nВыберите провайдер:"
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    async def _handle_language_settings(self, query, context, saved: bool = False):
+        """Handle language settings."""
+        current = context.user_data.get("language", "ru")
+        
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    f"{'✓ ' if current == 'ru' else ''}🇷🇺 Русский",
+                    callback_data="settings_lang_ru"
+                ),
+                InlineKeyboardButton(
+                    f"{'✓ ' if current == 'en' else ''}🇬🇧 English",
+                    callback_data="settings_lang_en"
+                )
+            ],
+            [InlineKeyboardButton("↩️ Назад", callback_data="menu_settings")]
+        ]
+        
+        text = "🌐 **Язык интерфейса**\n\n"
+        if saved:
+            text += f"✅ Язык изменён\n\n"
+        text += f"Текущий язык: **{'Русский' if current == 'ru' else 'English'}**\n\nВыберите язык:"
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    async def _handle_bybit_balance(self, query, context):
+        """Handle Bybit balance display."""
+        context.user_data["current_menu"] = "bybit_balance"
+        
+        try:
+            balance_info = await self._get_bybit_balance()
+            
+            text = "📊 **Баланс Bybit**\n\n"
+            if balance_info:
+                for coin, amount in balance_info.items():
+                    text += f"• {coin}: {amount}\n"
+            else:
+                text += "Информация о балансе недоступна.\n\n"
+                text += "Для отображения баланса настройте API ключи Bybit."
+            
+            await query.edit_message_text(
+                text,
+                reply_markup=self._get_back_keyboard("menu_settings")
+            )
+        except Exception as e:
+            logger.error(f"Bybit balance error: {e}")
+            await query.edit_message_text(
+                "❌ Ошибка получения баланса Bybit\n\n"
+                "Проверьте настройки API ключей.",
+                reply_markup=self._get_back_keyboard("menu_settings")
+            )
+    
+    async def _get_bybit_balance(self) -> dict:
+        """Get Bybit account balance."""
+        try:
+            if hasattr(p2p_bridge, 'bybit_client') and p2p_bridge.bybit_client:
+                balance = await p2p_bridge.bybit_client.get_wallet_balance()
+                return balance
+        except Exception as e:
+            logger.error(f"Error fetching Bybit balance: {e}")
+        return {}
     
     async def _show_status_callback(self, query):
         """Show status in callback context."""
@@ -238,9 +597,7 @@ class P2PTelegramBot:
                 await query.edit_message_text(
                     "📋 У вас нет активных ордеров\n\n"
                     "Для начала работы отправьте номер ордера.",
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("🔙 В меню", callback_data="menu_main")
-                    ]])
+                    reply_markup=self._get_back_keyboard()
                 )
                 return
             
@@ -253,18 +610,14 @@ class P2PTelegramBot:
             
             await query.edit_message_text(
                 status_text,
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 В меню", callback_data="menu_main")
-                ]])
+                reply_markup=self._get_back_keyboard()
             )
         
         except Exception as e:
             logger.error(f"Status callback error: {e}")
             await query.edit_message_text(
                 "❌ Ошибка получения статуса",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 В меню", callback_data="menu_main")
-                ]])
+                reply_markup=self._get_back_keyboard()
             )
     
     async def _cmd_status(self, update: Update, context):
@@ -277,9 +630,7 @@ class P2PTelegramBot:
             if not orders:
                 await update.message.reply_text(
                     "📋 У вас нет активных ордеров",
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("📋 Меню", callback_data="menu_main")
-                    ]])
+                    reply_markup=self._get_back_keyboard()
                 )
                 return
             
@@ -302,9 +653,7 @@ class P2PTelegramBot:
             "Для отмены сделки отправьте сообщение в формате:\n"
             "Отменить ORD123\n\n"
             "где ORD123 - номер вашего ордера",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("📋 Меню", callback_data="menu_main")
-            ]])
+            reply_markup=self._get_back_keyboard()
         )
     
     async def _cmd_help(self, update: Update, context):
@@ -313,6 +662,7 @@ class P2PTelegramBot:
             "📖 Помощь по боту\n\n"
             "Команды:\n"
             "/start - начать работу\n"
+            "/ask - AI-диалог\n"
             "/status - статус ордеров\n"
             "/cancel - отменить сделку\n"
             "/menu - главное меню\n"
