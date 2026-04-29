@@ -14,56 +14,48 @@
 
 ## Этап 3: Доработка AI 🔄 В ПРОЦЕССЕ
 
-**Приоритет: Высокий**
-
 - [ ] Верифицировать PaymentParser на реальных скриншотах
-- [ ] Добавить правила в FraudAnalyzer:
-  - [ ] Формат номера карты
-  - [ ] Анализ времени (ордер vs платёж)
-  - [ ] Проверка истории контрагента
-  - [ ] Детекция аномалий суммы
-- [ ] Подключить реальный Processing API (если требуется)
+- [ ] Добавить правила в FraudAnalyzer
+- [ ] Подключить реальный Processing API
 - [ ] Логирование AI-взаимодействий в БД
 
-## Этап 4: OpenRouter.ai 📋 ЗАПЛАНИРОВАНО
+## Этап 4: OpenRouter.ai ✅ ЗАВЕРШЁН
 
-**Приоритет: Средний**
+- [x] Добавить OPENROUTER_API_KEY в config
+- [x] Реализовать _generate_openrouter() в BaseAIAgent
+- [x] Добавить AIProvider.OPENROUTER
+- [x] Создать OpenRouterClient (openrouter_adapter.py)
+- [x] Интегрировать в docker-compose.yml
+- [x] Vision через OpenRouter
 
-- [ ] Добавить `OPENROUTER_API_KEY` в config
-- [ ] Реализовать `_generate_openrouter()` в BaseAIAgent
-- [ ] Добавить `AIProvider.OPENROUTER`
-- [ ] Тестирование моделей:
-  - [ ] `openai/gpt-4-turbo`
-  - [ ] `anthropic/claude-3-sonnet`
-  - [ ] `meta-llama/llama-3-70b-instruct`
+## Этап 5: Переработка меню бота ✅ ЗАВЕРШЁН
 
-## Этап 5: Тестирование 📋 ЗАПЛАНИРОВАНО
+- [x] Новое главное меню с InlineKeyboard
+- [x] Команда /ask для AI-диалога
+- [x] Подменю Анализ P2P
+- [x] Подменю Проверка мошенничества
+- [x] Подменю Настройки
+- [x] Состояния пользователя (ai_mode, current_menu)
+- [x] Vision через OpenRouter
 
-**Приоритет: Высокий**
+## Этап 6: Тестирование 📋 ЗАПЛАНИРОВАНО
 
-- [ ] Smoke-тесты:
-  - [ ] Telegram бот → оркестратор → ответ
-  - [ ] Веб → WebSocket → подтверждение
-  - [ ] Bybit API → mock fallback
-- [ ] Логирование ошибок (loguru + alerter)
+- [ ] Smoke-тесты
+- [ ] Логирование ошибок
 - [ ] Проверка БД при старте
 - [ ] Graceful shutdown
 
-## Этап 6: Production 📋 ЗАПЛАНИРОВАНО
-
-**Приоритет: Средний**
+## Этап 7: Production 📋 ЗАПЛАНИРОВАНО
 
 - [ ] Аутентификация веб-интерфейса
 - [ ] Резервное копирование БД
 - [ ] Healthcheck endpoints
 - [ ] Rate limiting
 
-## Этап 7: Расширения 📋 ДОЛГОСРОЧНО
-
-**Приоритет: Низкий**
+## Этап 8: Расширения 📋 ДОЛГОСРОЧНО
 
 - [ ] Backtesting
-- [ ] Цепочки агентов (Agent Chains)
+- [ ] Цепочки агентов
 - [ ] Автоуведомления о рисках
 - [ ] Админ-панель
 - [ ] Prometheus/Grafana
@@ -77,4 +69,3 @@
 1. **Тесты** — критично для стабильности
 2. **FraudAnalyzer rules** — повышение качества анализа
 3. **PaymentParser верификация** — проверка OCR
-4. **OpenRouter** — унификация AI доступа

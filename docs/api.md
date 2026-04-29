@@ -140,14 +140,36 @@ uv pip install bybit-p2p
 | Mistral | `MISTRAL_API_KEY` | `mistral-large-latest` |
 | Local (Ollama) | `LOCAL_LLM_URL` | `llama-3-8b` |
 
-### OpenRouter.ai (планируется)
+### OpenRouter.ai
 
-**Статус:** Архитектура подготовлена, реализация pending.
+**Статус:** ✅ Реализован
 
-**Требуемые изменения:**
-1. Добавить `OPENROUTER_API_KEY` в config
-2. Реализовать `_generate_openrouter()` в BaseAIAgent
-3. Добавить `AIProvider.OPENROUTER`
+**Используется для:**
+- AI-диалог в Telegram-боте (/ask)
+- Vision для анализа изображений (модель `openai/gpt-4o`)
+- Альтернатива OpenAI для всех AI-агентов
+
+**Переменные:**
+- `OPENROUTER_API_KEY` — API ключ
+- `OPENROUTER_MODEL` — модель (default: `openai/gpt-4o-mini`)
+
+**Поддерживаемые модели:**
+- `openai/gpt-4o-mini` — текст
+- `openai/gpt-4o` — vision
+- `anthropic/claude-3-sonnet` — текст
+- `deepseek/deepseek-v4-flash` — текст
+- и другие модели OpenRouter
+
+**Использование:**
+```python
+from app.ai_agents.openrouter_adapter import OpenRouterClient
+
+client = OpenRouterClient()
+response = await client.generate(
+    prompt="Вопрос",
+    system="Ты помощник P2P торговли"
+)
+```
 
 ---
 
