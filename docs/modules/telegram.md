@@ -54,6 +54,11 @@
 
 ## Хэндлеры сообщений
 
+### Зависимости
+
+- `OpenRouterClient` из `app/ai_agents/openrouter_adapter.py` — для AI-ответов
+- `OPENROUTER_API_KEY` — переменная окружения для аутентификации
+
 ### Текст
 
 **Функция:** `handle_text(update, context)`

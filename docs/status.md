@@ -47,7 +47,7 @@
 | Mistral | ✅ |
 | Local (Ollama) | ✅ |
 | Mock | ✅ |
-| OpenRouter | ❌ Не реализовано |
+| OpenRouter | ✅ Работает через langchain-openai |
 
 ---
 
@@ -71,7 +71,6 @@
 | Sentry для ошибок | Средний | Мониторинг ошибок |
 | CI/CD (GitHub Actions) | Низкий | Автоматизация деплоя |
 | Prometheus/Grafana | Низкий | Метрики и мониторинг |
-| OpenRouter.ai | Средний | Унифицированный AI API |
 
 ---
 

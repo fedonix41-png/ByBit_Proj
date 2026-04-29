@@ -14,6 +14,7 @@ class AIProvider(Enum):
     GROQ = "groq"
     TOGETHER = "together"
     MISTRAL = "mistral"
+    OPENROUTER = "openrouter"
     MOCK = "mock"
 
 class BaseAIAgent(ABC):
@@ -40,7 +41,8 @@ class BaseAIAgent(ABC):
             AIProvider.LOCAL: "llama-3-8b",
             AIProvider.GROQ: "mixtral-8x7b-32768",
             AIProvider.TOGETHER: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            AIProvider.MISTRAL: "mistral-large-latest"
+            AIProvider.MISTRAL: "mistral-large-latest",
+            AIProvider.OPENROUTER: os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         }
         return defaults.get(self.provider, "gpt-4-turbo-preview")
     
@@ -71,6 +73,15 @@ class BaseAIAgent(ABC):
             import httpx
             return httpx.AsyncClient(base_url=os.getenv("LOCAL_LLM_URL", "http://localhost:11434"))
         
+        elif self.provider == AIProvider.OPENROUTER:
+            from langchain_openai import ChatOpenAI
+            return ChatOpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                model=self.model,
+                temperature=0.3
+            )
+        
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
     
@@ -98,6 +109,9 @@ class BaseAIAgent(ABC):
 
             elif self.provider == AIProvider.LOCAL:
                 return await self._generate_local(system_prompt, user_prompt, temperature, json_mode)
+            
+            elif self.provider == AIProvider.OPENROUTER:
+                return await self._generate_openrouter(system_prompt, user_prompt, temperature, json_mode)
 
         except Exception as e:
             logger.error(f"AI generation error ({self.provider.value}): {e}")
@@ -213,7 +227,23 @@ class BaseAIAgent(ABC):
         
         return {
             "content": data["response"],
-            "tokens": 0,  # Ollama doesn't return token count
+            "tokens": 0,
+            "model": self.model
+        }
+    
+    async def _generate_openrouter(self, system_prompt: str, user_prompt: str,
+                                   temperature: float, json_mode: bool) -> Dict[str, Any]:
+        """Generate with OpenRouter.ai."""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        response = await self.client.ainvoke(messages)
+        
+        return {
+            "content": response.content,
+            "tokens": response.response_metadata.get("token_usage", {}).get("total_tokens", 0),
             "model": self.model
         }
 

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     USE_MOCK_DATA: bool = False
     
     OPENAI_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_MODEL: str = "openai/gpt-4o-mini"
     USE_AI_MOCK: bool = False
     
     OPENAI_MODEL: str = "gpt-4o-mini"
@@ -40,6 +42,7 @@ class Settings(BaseSettings):
     
     MAX_CONVERSATION_HISTORY: int = 20
     INTENT_CONFIDENCE_THRESHOLD: float = 0.7
+    AI_PROVIDER: str = "openrouter"
     
     @property
     def db_path(self) -> Path:
@@ -53,6 +56,9 @@ BYBIT_API_SECRET = settings.BYBIT_API_SECRET
 BYBIT_TESTNET = settings.BYBIT_TESTNET
 USE_MOCK_DATA = settings.USE_MOCK_DATA
 USE_AI_MOCK = settings.USE_AI_MOCK
+AI_PROVIDER = settings.AI_PROVIDER
+OPENROUTER_API_KEY = settings.OPENROUTER_API_KEY
+OPENROUTER_MODEL = settings.OPENROUTER_MODEL
 HOST = settings.HOST
 PORT = settings.PORT
 DEBUG = settings.DEBUG
@@ -73,8 +79,13 @@ def validate_config():
         print("🤖 AI MOCK MODE: Using mock AI agents instead of real API calls.")
         print("   This is safe for development and testing.")
     else:
-        print("🤖 AI LIVE MODE: Using real AI API calls.")
-        if not settings.OPENAI_API_KEY:
+        print(f"🤖 AI LIVE MODE: Using provider '{settings.AI_PROVIDER}'")
+        if settings.AI_PROVIDER == "openrouter":
+            if not settings.OPENROUTER_API_KEY:
+                print("⚠️  WARNING: OPENROUTER_API_KEY not set. AI features disabled.")
+            else:
+                print(f"   OpenRouter model: {settings.OPENROUTER_MODEL}")
+        elif not settings.OPENAI_API_KEY:
             print("⚠️  WARNING: OPENAI_API_KEY not set. Voice/image features disabled.")
 
     if USE_MOCK_DATA:

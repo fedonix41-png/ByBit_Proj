@@ -18,6 +18,7 @@
 | Together | `TOGETHER` | `TOGETHER_API_KEY` | `mistralai/Mixtral-8x7B-Instruct-v0.1` |
 | Mistral | `MISTRAL` | `MISTRAL_API_KEY` | `mistral-large-latest` |
 | Local | `LOCAL` | `LOCAL_LLM_URL` | `llama-3-8b` |
+| OpenRouter | `OPENROUTER` | `OPENROUTER_API_KEY` | `openai/gpt-4o-mini` |
 | Mock | `MOCK` | - | `mock-ai-model` |
 
 ### Методы
@@ -52,6 +53,56 @@ class MyAgent(BaseAIAgent):
         )
         return {"response": result["content"]}
 ```
+
+---
+
+## OpenRouterAdapter
+
+**Файл:** `openrouter_adapter.py`
+
+Отдельный адаптер для OpenRouter.ai с OpenAI-совместимым интерфейсом.
+
+### Особенности
+
+- Использует `langchain_openai.ChatOpenAI` с `base_url="https://openrouter.ai/api/v1"`
+- Асинхронный метод `generate()` для неблокирующих вызовов
+- Обработка ошибок с понятными сообщениями для пользователя
+
+### API
+
+```python
+from app.ai_agents.openrouter_adapter import OpenRouterClient
+
+# Инициализация (читает OPENROUTER_API_KEY и OPENROUTER_MODEL из env)
+client = OpenRouterClient()
+
+# Асинхронная генерация
+response = await client.generate(
+    prompt="Какие реквизиты для оплаты?",
+    system="Ты помощник P2P торговли."
+)
+
+# Проверка конфигурации
+if client.is_configured:
+    response = await client.generate("Привет")
+else:
+    print("API-ключ не настроен")
+```
+
+### Переменные окружения
+
+| Переменная | Default | Описание |
+|------------|---------|----------|
+| `OPENROUTER_API_KEY` | - | API ключ OpenRouter |
+| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | Модель для использования |
+
+### Обработка ошибок
+
+| Ошибка | Сообщение пользователю |
+|--------|----------------------|
+| `AuthenticationError` | "Неверный API-ключ OpenRouter" |
+| `APIConnectionError` | "Сервис временно недоступен" |
+| Нет ключа | "API-ключ OpenRouter не настроен" |
 
 ---
 

@@ -31,6 +31,7 @@ cp .env.example .env
 |--------|----------|
 | [docs/overview.md](docs/overview.md) | Обзор проекта |
 | [docs/architecture.md](docs/architecture.md) | Архитектура и компоненты |
+| [docs/stack.md](docs/stack.md) | **Стек технологий** |
 | [docs/setup.md](docs/setup.md) | Установка и настройка |
 | [docs/api.md](docs/api.md) | REST API и внешние сервисы |
 | [docs/status.md](docs/status.md) | Текущее состояние |

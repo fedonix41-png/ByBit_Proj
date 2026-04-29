@@ -42,6 +42,8 @@ cp .env.example .env
 | `TOGETHER_API_KEY` | Together AI |
 | `MISTRAL_API_KEY` | Mistral AI |
 | `LOCAL_LLM_URL` | Ollama (default: `http://localhost:11434`) |
+| `OPENROUTER_API_KEY` | OpenRouter.ai (унифицированный API) |
+| `OPENROUTER_MODEL` | Модель OpenRouter (default: `openai/gpt-4o-mini`) |
 
 ### Сервер
 
