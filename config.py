@@ -1,31 +1,65 @@
 """Configuration module for P2P automation system."""
 import os
 from pathlib import Path
+from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
-# Load environment variables
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-# Bybit API Configuration
-BYBIT_API_KEY = os.getenv('BYBIT_API_KEY', '')
-BYBIT_API_SECRET = os.getenv('BYBIT_API_SECRET', '')
-BYBIT_TESTNET = os.getenv('BYBIT_TESTNET', 'True').lower() == 'true'
-USE_MOCK_DATA = os.getenv('USE_MOCK_DATA', 'False').lower() == 'true'
 
-# AI Configuration
-USE_AI_MOCK = os.getenv('USE_AI_MOCK', 'False').lower() == 'true'
+class Settings(BaseSettings):
+    """Application settings with validation."""
+    
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore'
+    )
+    
+    TELEGRAM_BOT_TOKEN: str = ""
+    
+    BYBIT_API_KEY: str = ""
+    BYBIT_API_SECRET: str = ""
+    BYBIT_TESTNET: bool = True
+    USE_MOCK_DATA: bool = False
+    
+    OPENAI_API_KEY: Optional[str] = None
+    USE_AI_MOCK: bool = False
+    
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_AUDIO_MODEL: str = "whisper-1"
+    OPENAI_VISION_MODEL: str = "gpt-4o"
+    
+    HOST: str = "127.0.0.1"
+    PORT: int = 8000
+    DEBUG: bool = True
+    
+    DB_PATH: Path = Path("data/checkpoints.db")
+    
+    MAX_CONVERSATION_HISTORY: int = 20
+    INTENT_CONFIDENCE_THRESHOLD: float = 0.7
+    
+    @property
+    def db_path(self) -> Path:
+        return Path(__file__).parent / self.DB_PATH
 
-# Server Configuration
-HOST = os.getenv('HOST', '127.0.0.1')
-PORT = int(os.getenv('PORT', '8000'))
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-# Database
-DB_PATH = Path(__file__).parent / 'data' / 'checkpoints.db'
+settings = Settings()
 
-# Ensure data directory exists
+BYBIT_API_KEY = settings.BYBIT_API_KEY
+BYBIT_API_SECRET = settings.BYBIT_API_SECRET
+BYBIT_TESTNET = settings.BYBIT_TESTNET
+USE_MOCK_DATA = settings.USE_MOCK_DATA
+USE_AI_MOCK = settings.USE_AI_MOCK
+HOST = settings.HOST
+PORT = settings.PORT
+DEBUG = settings.DEBUG
+DB_PATH = settings.db_path
+
 DB_PATH.parent.mkdir(exist_ok=True)
+
 
 def validate_config():
     """Validate that required configuration is present."""
@@ -34,17 +68,19 @@ def validate_config():
     print(f"   USE_AI_MOCK: {USE_AI_MOCK}")
     print(f"   BYBIT_TESTNET: {BYBIT_TESTNET}")
     print()
-
+    
     if USE_AI_MOCK:
         print("🤖 AI MOCK MODE: Using mock AI agents instead of real API calls.")
         print("   This is safe for development and testing.")
     else:
         print("🤖 AI LIVE MODE: Using real AI API calls.")
+        if not settings.OPENAI_API_KEY:
+            print("⚠️  WARNING: OPENAI_API_KEY not set. Voice/image features disabled.")
 
     if USE_MOCK_DATA:
         print("⚠️  BYBIT MOCK MODE: No real Bybit API calls will be made.")
         print("   This is safe but limited. Use testnet API for full functionality.")
-        return  # Mock mode doesn't require API keys
+        return
 
     if not BYBIT_API_KEY or not BYBIT_API_SECRET:
         raise ValueError(
