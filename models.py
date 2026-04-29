@@ -1,8 +1,7 @@
 """Data models for P2P automation system."""
 from typing import Optional, List, Literal
 from datetime import datetime
-from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
+from pydantic import BaseModel
 
 # Pydantic models for API responses
 class Order(BaseModel):
@@ -33,20 +32,6 @@ class Balance(BaseModel):
     available: float
     locked: float
     total: float
-
-# LangGraph State (TypedDict for graph state)
-class P2PState(TypedDict, total=False):
-    """State for P2P automation graph."""
-    messages: List[dict]  # Chat message history
-    current_order_id: str
-    last_message: Optional[dict]
-    intent: str  # "greeting", "payment_details", "confirm_payment", "scam", "unknown"
-    proposed_response: Optional[str]
-    approval_required: bool
-    approval_granted: Optional[bool]
-    user_input: Optional[str]  # For manual input (amount, decision)
-    error: Optional[str]
-    run_id: Optional[str]
 
 # API Request/Response models
 class StartMonitorRequest(BaseModel):

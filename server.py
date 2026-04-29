@@ -12,7 +12,8 @@ from starlette.middleware.cors import CORSMiddleware
 
 from models import StartMonitorRequest, ApprovalRequest, StateResponse
 from bybit_client import bybit_client
-from graph import p2p_graph
+from app.orchestrator.graph import p2p_graph
+from app.orchestrator.state import P2PAutomationState
 import config
 
 logging.basicConfig(level=logging.INFO)
@@ -176,18 +177,16 @@ async def start_monitor(request: StartMonitorRequest):
         order_id = request.order_id
         run_id = f"run_{order_id}_{asyncio.get_event_loop().time()}"
         
-        # Initialize state
-        initial_state = {
-            "current_order_id": order_id,
+        initial_state: P2PAutomationState = {
+            "order_id": order_id,
+            "run_id": run_id,
             "messages": [],
-            "approval_required": False,
-            "run_id": run_id
+            "response_approval_required": False,
+            "risk_approval_required": False
         }
         
-        # Run graph in background
         config_dict = {"configurable": {"thread_id": run_id}}
         
-        # Start graph execution
         asyncio.create_task(run_graph_async(run_id, initial_state, config_dict))
         
         active_runs[run_id] = {
@@ -207,46 +206,45 @@ async def start_monitor(request: StartMonitorRequest):
         logger.error(f"Error starting monitor: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def run_graph_async(run_id: str, initial_state: dict, config_dict: dict):
+async def run_graph_async(run_id: str, initial_state: P2PAutomationState, config_dict: dict):
     """Run graph asynchronously and broadcast state updates."""
     try:
-        # Execute graph
         result = None
         for event in p2p_graph.stream(initial_state, config_dict):
             logger.info(f"Graph event: {event}")
             
-            # LangGraph returns dict with node_name as key
             if isinstance(event, dict):
                 for node_name, node_state in event.items():
-                    # node_state is the actual state dict
                     if isinstance(node_state, dict):
                         result = node_state
                     elif isinstance(node_state, tuple):
-                        # If it's a tuple, take the first element (state)
                         result = node_state[0] if node_state else {}
                     else:
                         result = {}
                     
-                    # Update active run
                     if run_id in active_runs:
                         active_runs[run_id]["state"] = result
-                        active_runs[run_id]["status"] = "waiting_approval" if result.get("approval_required") else "running"
+                        waiting_approval = result.get("response_approval_required") or result.get("risk_approval_required")
+                        active_runs[run_id]["status"] = "waiting_approval" if waiting_approval else "running"
                     
-                    # Broadcast state update
                     await manager.broadcast({
                         "type": "state_update",
                         "run_id": run_id,
                         "node": node_name,
                         "state": {
-                            "order_id": result.get("current_order_id") if isinstance(result, dict) else None,
+                            "order_id": result.get("order_id") if isinstance(result, dict) else None,
                             "intent": result.get("intent") if isinstance(result, dict) else None,
+                            "intent_confidence": result.get("intent_confidence") if isinstance(result, dict) else None,
                             "proposed_response": result.get("proposed_response") if isinstance(result, dict) else None,
-                            "approval_required": result.get("approval_required", False) if isinstance(result, dict) else False,
+                            "response_approval_required": result.get("response_approval_required", False) if isinstance(result, dict) else False,
+                            "risk_approval_required": result.get("risk_approval_required", False) if isinstance(result, dict) else False,
+                            "risk_score": result.get("risk_score") if isinstance(result, dict) else None,
+                            "risk_level": result.get("risk_level") if isinstance(result, dict) else None,
+                            "current_step": result.get("current_step") if isinstance(result, dict) else None,
                             "error": result.get("error") if isinstance(result, dict) else None
                         }
                     })
         
-        # Mark as completed
         if run_id in active_runs:
             active_runs[run_id]["status"] = "completed"
             await manager.broadcast({
@@ -275,12 +273,16 @@ async def approve_action(run_id: str, request: ApprovalRequest):
         run_info = active_runs[run_id]
         current_state = run_info["state"]
         
-        # Update state with approval
-        current_state["approval_granted"] = request.approved
-        if request.user_input:
-            current_state["user_input"] = request.user_input
+        if current_state.get("response_approval_required"):
+            current_state["response_approved"] = request.approved
+            current_state["response_approval_required"] = False
+        elif current_state.get("risk_approval_required"):
+            current_state["risk_approved"] = request.approved
+            current_state["risk_approval_required"] = False
         
-        # Resume graph execution
+        if request.user_input:
+            current_state["proposed_response"] = request.user_input
+        
         config_dict = {"configurable": {"thread_id": run_id}}
         asyncio.create_task(run_graph_async(run_id, current_state, config_dict))
         
