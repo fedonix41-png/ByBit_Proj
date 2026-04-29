@@ -1,66 +1,74 @@
-# 🤖 Bybit P2P Automation v2.0
+# 🤖 Bybit P2P Automation v2.1
 
-> **Текущий статус:** Продвинутая версия с AI-агентами и полной автоматизацией P2P-торговли
+> **Статус:** Продвинутая версия с AI-агентами и LangGraph оркестратором
 
-Система автоматизации P2P-торговли криптовалютой на платформе Bybit с AI-анализом сообщений, оценкой рисков и обязательным человеческим контролем на критических этапах.
-
-## 🚀 Быстрый старт
-
-### Требования
-- Python 3.11+
-- uv (рекомендуется) или pip
-
-### Установка и запуск
-
-```bash
-# Установка uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Клонирование и настройка
-cd ByBit-tst
-cp .env.example .env
-
-# Настройка API ключей в .env файле (обязательно!)
-# BYBIT_API_KEY=your_testnet_api_key
-# BYBIT_API_SECRET=your_testnet_api_secret
-# BYBIT_TESTNET=True  # Всегда true для разработки
-# USE_MOCK_DATA=False  # Использовать testnet API
-
-# Запуск
-./manage.sh start
-```
-
-Открыть интерфейс: [http://127.0.0.1:8000](http://127.0.0.1:8000)
-
-## 📖 Документация
-
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Архитектура системы v2.0
-- **[IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md)** - Статус реализации компонентов
-- **[AUDIT_REPORT.md](./AUDIT_REPORT.md)** - Анализ несоответствий в документации
-- **[QUICKSTART.md](./QUICKSTART.md)** - Быстрый старт
-- **[Docker Setup](#docker-setup)** - Запуск через Docker
-
-## ⚠️ Важные предупреждения
-
-- **Всегда используйте testnet** - система настроена на Bybit testnet API для безопасной разработки
-- **Human-in-the-Loop активен** - все критические действия требуют вашего подтверждения
-- **AI-анализ не совершенен** - проверяйте результаты перед подтверждением
-- **Testnet полностью безопасен** - нет риска реальных финансовых потерь
-
-## 🛠️ Основные возможности
-
-- ✅ **AI-агенты**: Классификация намерений, генерация ответов, OCR парсинг платежей, анализ рисков
-- ✅ **LangGraph оркестратор**: 12-узловой граф с персистентностью и восстановлением
-- ✅ **Telegram бот**: Обработка сообщений и фото от клиентов
-- ✅ **Bybit Testnet API**: Полная интеграция с P2P API для безопасной разработки
-- ✅ **PostgreSQL база данных**: Полное хранение истории ордеров, сообщений, решений
-- ✅ **Web-интерфейс**: Мониторинг и подтверждения через FastAPI + WebSocket
-- ✅ **Docker Compose**: Полный стек с PostgreSQL и Telegram ботом
-
-## 📝 Лицензия
-
-MIT License - используйте на свой страх и риск.
+Система автоматизации P2P-торговли криптовалютой на платформе Bybit с AI-анализом сообщений, оценкой рисков и обязательным человеческим контролем (Human-in-the-Loop).
 
 ---
 
-**Документация обновлена** - отражает текущее состояние v2.0 с AI-агентами и полной архитектурой.
+## 🚀 Быстрый старт
+
+```bash
+# Установка
+curl -LsSf https://astral.sh/uv/install.sh | sh
+cd ByBit-tst
+cp .env.example .env
+# Отредактируйте .env!
+
+# Запуск
+./start.sh server   # FastAPI на http://127.0.0.1:8000
+./start.sh bot      # Telegram-бот
+./start.sh docker   # Полный стек через Docker
+```
+
+---
+
+## 📖 Документация
+
+**[docs/index.md](docs/index.md)** — оглавление документации
+
+| Раздел | Описание |
+|--------|----------|
+| [docs/overview.md](docs/overview.md) | Обзор проекта |
+| [docs/architecture.md](docs/architecture.md) | Архитектура и компоненты |
+| [docs/setup.md](docs/setup.md) | Установка и настройка |
+| [docs/api.md](docs/api.md) | REST API и внешние сервисы |
+| [docs/status.md](docs/status.md) | Текущее состояние |
+| [docs/roadmap.md](docs/roadmap.md) | Дорожная карта |
+
+**Модули:**
+| Файл | Описание |
+|------|----------|
+| [docs/modules/ai_agents.md](docs/modules/ai_agents.md) | AI-агенты |
+| [docs/modules/orchestrator.md](docs/modules/orchestrator.md) | LangGraph оркестратор |
+| [docs/modules/telegram.md](docs/modules/telegram.md) | Telegram-бот |
+| [docs/modules/database.md](docs/modules/database.md) | База данных |
+| [docs/modules/bybit_client.md](docs/modules/bybit_client.md) | Bybit API |
+| [docs/modules/bridge.md](docs/modules/bridge.md) | P2P Bridge |
+
+---
+
+## ⚠️ Важно
+
+- **Testnet-first** — разработка только на тестовой сети
+- **Human-in-the-Loop** — подтверждение критических действий
+- **Mock-режим** — тестирование без реальных API
+
+---
+
+## 🛠️ Возможности
+
+| Компонент | Описание |
+|-----------|----------|
+| AI-агенты | IntentClassifier, ResponseGenerator, PaymentParser, FraudAnalyzer |
+| Оркестратор | 12-узловой LangGraph граф с прерываниями |
+| Telegram-бот | Текст, голос, фото, InlineKeyboard меню |
+| Bybit API | Testnet + mock fallback |
+| База данных | PostgreSQL + Alembic миграции |
+| Веб-интерфейс | FastAPI + WebSocket |
+
+---
+
+## 📝 Лицензия
+
+MIT License
