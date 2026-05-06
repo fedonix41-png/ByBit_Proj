@@ -171,3 +171,34 @@ curl http://127.0.0.1:8000/api/balance
 docker-compose down -v
 docker-compose up -d
 ```
+
+## Безопасность
+
+### JWT Secret
+
+```bash
+# Сгенерируйте надёжный секрет
+openssl rand -hex 32
+
+# Добавьте в .env
+JWT_SECRET_KEY=your-generated-secret-here
+```
+
+### CORS Origins
+
+```bash
+# Разрешённые origins (через запятую)
+ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+```
+
+### Backup
+
+```bash
+# Создать backup вручную
+./scripts/backup_db.sh
+
+# Настроить cron для ежедневного backup
+crontab -e
+# Добавьте:
+0 2 * * * cd /path/to/project && ./scripts/backup_db.sh >> logs/backup.log 2>&1
+```

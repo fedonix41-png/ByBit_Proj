@@ -3,21 +3,27 @@ import signal
 import asyncio
 import os
 from datetime import datetime
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
-from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from models import StartMonitorRequest, ApprovalRequest, StateResponse
 from bybit_client import bybit_client
 from app.orchestrator.graph import p2p_graph
 from app.orchestrator.state import P2PAutomationState
-from app.core import setup_logging, get_logger
+from app.core import (
+    setup_logging, get_logger,
+    get_current_user, get_admin_user, OptionalAuth,
+    SecurityMiddleware, RateLimitMiddleware, rate_limiter,
+    SecurityHeadersMiddleware, CORSSecurityMiddleware
+)
+from app.api.auth import router as auth_router
+from app.database.security_models import User
 import config
 
 logger = get_logger(__name__)
@@ -43,37 +49,43 @@ def check_database_connection():
         logger.error(f"Database connection failed: {e}")
         return False
 
-# WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Set[WebSocket] = set()
+        self.user_connections: Dict[int, Set[WebSocket]] = {}
     
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, user_id: Optional[int] = None):
         await websocket.accept()
         self.active_connections.add(websocket)
+        if user_id:
+            if user_id not in self.user_connections:
+                self.user_connections[user_id] = set()
+            self.user_connections[user_id].add(websocket)
         logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
     
     def disconnect(self, websocket: WebSocket):
         self.active_connections.discard(websocket)
+        for user_id, connections in self.user_connections.items():
+            connections.discard(websocket)
         logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
     
-    async def broadcast(self, message: dict):
-        """Broadcast message to all connected clients."""
+    async def broadcast(self, message: dict, user_id: Optional[int] = None):
+        """Broadcast message to all clients or specific user."""
         disconnected = set()
-        for connection in self.active_connections:
+        connections = self.user_connections.get(user_id, self.active_connections) if user_id else self.active_connections
+        
+        for connection in connections:
             try:
                 await connection.send_json(message)
             except Exception as e:
                 logger.error(f"Error sending to WebSocket: {e}")
                 disconnected.add(connection)
         
-        # Clean up disconnected clients
         for conn in disconnected:
             self.disconnect(conn)
 
 manager = ConnectionManager()
 
-# Store active runs
 active_runs: Dict[str, dict] = {}
 
 @asynccontextmanager
@@ -103,16 +115,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database init warning: {e}")
     
+    await rate_limiter.init_redis()
+    logger.info("Rate limiter initialized")
+    
     yield
     
     logger.info("Initiating graceful shutdown...")
+    await rate_limiter.close()
     try:
         await asyncio.wait_for(shutdown_event.wait(), timeout=10.0)
     except asyncio.TimeoutError:
         logger.warning("Shutdown timeout - forcing exit")
     logger.info("Shutdown complete")
 
-# Create FastAPI app
 app = FastAPI(
     title="Bybit P2P Automation",
     description="Human-in-the-loop P2P trading automation",
@@ -120,16 +135,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware for local development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(SecurityHeadersMiddleware)
 
-# Setup templates and static files
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+app.add_middleware(CORSSecurityMiddleware, allowed_origins=allowed_origins)
+
+app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
+
+app.add_middleware(SecurityMiddleware)
+
+app.include_router(auth_router)
+
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -139,8 +155,8 @@ async def root(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
 @app.get("/api/ads")
-async def get_ads():
-    """Get list of P2P advertisements."""
+async def get_ads(current_user: User = Depends(get_current_user)):
+    """Get list of P2P advertisements (requires authentication)."""
     try:
         ads = bybit_client.get_ads_list()
         return {"success": True, "data": [ad.model_dump() for ad in ads]}
@@ -149,8 +165,8 @@ async def get_ads():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/chat/{order_id}")
-async def get_chat(order_id: str):
-    """Get chat messages for an order."""
+async def get_chat(order_id: str, current_user: User = Depends(get_current_user)):
+    """Get chat messages for an order (requires authentication)."""
     try:
         messages = bybit_client.get_chat_messages(order_id)
         return {"success": True, "data": [msg.model_dump() for msg in messages]}
@@ -159,8 +175,8 @@ async def get_chat(order_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/balance")
-async def get_balance():
-    """Get account balance."""
+async def get_balance(current_user: User = Depends(get_current_user)):
+    """Get account balance (requires authentication)."""
     try:
         balance = bybit_client.get_balance()
         return {"success": True, "data": [b.model_dump() for b in balance]}
@@ -169,8 +185,8 @@ async def get_balance():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/payment_methods")
-async def get_payment_methods():
-    """Get available payment methods."""
+async def get_payment_methods(current_user: User = Depends(get_current_user)):
+    """Get available payment methods (requires authentication)."""
     try:
         methods = bybit_client.get_payment_methods()
         return {"success": True, "data": methods}
@@ -179,8 +195,8 @@ async def get_payment_methods():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/order/{order_id}")
-async def get_order_details(order_id: str):
-    """Get order details."""
+async def get_order_details(order_id: str, current_user: User = Depends(get_current_user)):
+    """Get order details (requires authentication)."""
     try:
         details = bybit_client.get_order_details(order_id)
         if details:
@@ -193,8 +209,8 @@ async def get_order_details(order_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/order/{order_id}/cancel")
-async def cancel_order(order_id: str):
-    """Cancel an order."""
+async def cancel_order(order_id: str, current_user: User = Depends(get_current_user)):
+    """Cancel an order (requires authentication)."""
     try:
         success = bybit_client.cancel_order(order_id)
         return {"success": success, "message": "Order cancelled" if success else "Failed to cancel"}
@@ -203,8 +219,8 @@ async def cancel_order(order_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/order/{order_id}/confirm_payment")
-async def confirm_payment(order_id: str):
-    """Confirm payment for an order."""
+async def confirm_payment(order_id: str, current_user: User = Depends(get_current_user)):
+    """Confirm payment for an order (requires authentication)."""
     try:
         success = bybit_client.confirm_payment(order_id)
         return {"success": success, "message": "Payment confirmed" if success else "Failed to confirm"}
@@ -213,8 +229,8 @@ async def confirm_payment(order_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/trade_history")
-async def get_trade_history():
-    """Get trade history."""
+async def get_trade_history(current_user: User = Depends(get_current_user)):
+    """Get trade history (requires authentication)."""
     try:
         history = bybit_client.get_trade_history()
         return {"success": True, "data": history}
@@ -223,8 +239,8 @@ async def get_trade_history():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/start_monitor")
-async def start_monitor(request: StartMonitorRequest):
-    """Start monitoring an order."""
+async def start_monitor(request: StartMonitorRequest, current_user: User = Depends(get_current_user)):
+    """Start monitoring an order (requires authentication)."""
     try:
         order_id = request.order_id
         run_id = f"run_{order_id}_{asyncio.get_event_loop().time()}"
@@ -239,26 +255,27 @@ async def start_monitor(request: StartMonitorRequest):
         
         config_dict = {"configurable": {"thread_id": run_id}}
         
-        asyncio.create_task(run_graph_async(run_id, initial_state, config_dict))
+        asyncio.create_task(run_graph_async(run_id, initial_state, config_dict, current_user.id))
         
         active_runs[run_id] = {
             "order_id": order_id,
             "status": "running",
-            "state": initial_state
+            "state": initial_state,
+            "user_id": current_user.id
         }
         
         await manager.broadcast({
             "type": "monitor_started",
             "run_id": run_id,
             "order_id": order_id
-        })
+        }, user_id=current_user.id)
         
         return {"success": True, "run_id": run_id, "order_id": order_id}
     except Exception as e:
         logger.error(f"Error starting monitor: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def run_graph_async(run_id: str, initial_state: P2PAutomationState, config_dict: dict):
+async def run_graph_async(run_id: str, initial_state: P2PAutomationState, config_dict: dict, user_id: Optional[int] = None):
     """Run graph asynchronously and broadcast state updates."""
     try:
         result = None
@@ -295,14 +312,14 @@ async def run_graph_async(run_id: str, initial_state: P2PAutomationState, config
                             "current_step": result.get("current_step") if isinstance(result, dict) else None,
                             "error": result.get("error") if isinstance(result, dict) else None
                         }
-                    })
+                    }, user_id=user_id)
         
         if run_id in active_runs:
             active_runs[run_id]["status"] = "completed"
             await manager.broadcast({
                 "type": "monitor_completed",
                 "run_id": run_id
-            })
+            }, user_id=user_id)
             
     except Exception as e:
         logger.error(f"Error in graph execution: {e}", exc_info=True)
@@ -313,16 +330,20 @@ async def run_graph_async(run_id: str, initial_state: P2PAutomationState, config
             "type": "error",
             "run_id": run_id,
             "error": str(e)
-        })
+        }, user_id=user_id)
 
 @app.post("/api/approve/{run_id}")
-async def approve_action(run_id: str, request: ApprovalRequest):
-    """Approve or reject a pending action."""
+async def approve_action(run_id: str, request: ApprovalRequest, current_user: User = Depends(get_current_user)):
+    """Approve or reject a pending action (requires authentication)."""
     try:
         if run_id not in active_runs:
             raise HTTPException(status_code=404, detail="Run not found")
         
         run_info = active_runs[run_id]
+        
+        if run_info.get("user_id") and run_info["user_id"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         current_state = run_info["state"]
         
         if current_state.get("response_approval_required"):
@@ -336,13 +357,13 @@ async def approve_action(run_id: str, request: ApprovalRequest):
             current_state["proposed_response"] = request.user_input
         
         config_dict = {"configurable": {"thread_id": run_id}}
-        asyncio.create_task(run_graph_async(run_id, current_state, config_dict))
+        asyncio.create_task(run_graph_async(run_id, current_state, config_dict, current_user.id))
         
         await manager.broadcast({
             "type": "approval_submitted",
             "run_id": run_id,
             "approved": request.approved
-        })
+        }, user_id=current_user.id)
         
         return {"success": True, "run_id": run_id, "approved": request.approved}
     except HTTPException:
@@ -352,21 +373,35 @@ async def approve_action(run_id: str, request: ApprovalRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/runs")
-async def get_runs():
-    """Get all active runs."""
-    return {"success": True, "data": active_runs}
+async def get_runs(current_user: User = Depends(get_current_user)):
+    """Get all active runs for current user (requires authentication)."""
+    user_runs = {
+        run_id: run_info 
+        for run_id, run_info in active_runs.items()
+        if run_info.get("user_id") == current_user.id
+    }
+    return {"success": True, "data": user_runs}
 
 @app.get("/api/run/{run_id}")
-async def get_run(run_id: str):
-    """Get specific run details."""
+async def get_run(run_id: str, current_user: User = Depends(get_current_user)):
+    """Get specific run details (requires authentication)."""
     if run_id not in active_runs:
         raise HTTPException(status_code=404, detail="Run not found")
-    return {"success": True, "data": active_runs[run_id]}
+    
+    run_info = active_runs[run_id]
+    if run_info.get("user_id") and run_info["user_id"] != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return {"success": True, "data": run_info}
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time updates."""
-    await manager.connect(websocket)
+async def websocket_endpoint(
+    websocket: WebSocket,
+    current_user: Optional[User] = Depends(OptionalAuth())
+):
+    """WebSocket endpoint with optional authentication."""
+    user_id = current_user.id if current_user else None
+    await manager.connect(websocket, user_id)
     try:
         while True:
             data = await websocket.receive_text()
@@ -423,7 +458,7 @@ async def readiness():
     return {"status": "ready"}
 
 @app.post("/shutdown")
-async def trigger_shutdown():
-    """Trigger graceful shutdown (for testing)."""
+async def trigger_shutdown(admin: User = Depends(get_admin_user)):
+    """Trigger graceful shutdown (admin only)."""
     os.kill(os.getpid(), signal.SIGTERM)
     return {"status": "shutting down"}

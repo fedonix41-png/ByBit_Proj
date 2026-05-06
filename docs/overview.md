@@ -53,3 +53,8 @@
 - **Testnet-first** — разработка только на тестовой сети
 - **Human-in-the-Loop** — подтверждение критических действий
 - **Mock-режим** — тестирование без реальных API
+- **JWT аутентификация** — access + refresh токены
+- **Rate limiting** — защита от abuse
+- **Security headers** — XSS, CSRF, clickjacking защита
+- **Audit logging** — аудит всех операций
+- **DB backup** — ежедневное резервное копирование

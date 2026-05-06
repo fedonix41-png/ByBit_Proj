@@ -61,3 +61,7 @@ htmlcov/
 # uv
 .uv/
 uv.lock
+
+# Backups
+backups/
+*.sql.gz

@@ -67,11 +67,14 @@ services:
       MESSAGE_MAX_LENGTH: ${MESSAGE_MAX_LENGTH:-2000}
       RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-15}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8000}
+      SECURITY_HEADERS_ENABLED: "true"
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./backups:/app/backups
     networks:
       - p2p_network
     restart: unless-stopped

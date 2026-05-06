@@ -83,11 +83,28 @@
 - [x] pytest.ini с настройками
 - [x] Зависимости: pytest>=8.0.0, pytest-asyncio>=0.23.0, pytest-cov>=4.1.0, pytest-mock>=3.12.0
 
-## Этап 8: Production 📋 ЗАПЛАНИРОВАНО
+## Этап 8: Production ✅ ЗАВЕРШЁН
 
-- [ ] Аутентификация веб-интерфейса
-- [ ] Резервное копирование БД
-- [ ] Rate limiting
+- [x] Аутентификация веб-интерфейса
+  - [x] JWT access + refresh токены
+  - [x] User, UserSession, SecurityAuditLog модели
+  - [x] Login/Register/Refresh/Logout endpoints
+  - [x] Role-based access control (user/admin/operator)
+  - [x] Account lockout после неудачных попыток
+- [x] Rate limiting
+  - [x] Redis-based sliding window
+  - [x] Endpoint-specific limits (login: 5/min, register: 3/hour)
+  - [x] X-RateLimit-* headers
+  - [x] In-memory fallback
+- [x] Резервное копирование БД
+  - [x] backup_db.sh скрипт
+  - [x] Rotation (30 дней)
+  - [x] Restore functionality
+- [x] Security hardening
+  - [x] CORS whitelist (не "*")
+  - [x] Security headers (X-Frame-Options, CSP, HSTS)
+  - [x] Security audit logging
+  - [x] Input validation
 
 ## Этап 9: Расширения 📋 ДОЛГОСРОЧНО
 

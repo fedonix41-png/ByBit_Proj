@@ -122,6 +122,36 @@
 | 10 sec timeout | ✅ |
 | POST /shutdown | ✅ |
 
+### Безопасность
+
+| Компонент | Статус |
+|-----------|--------|
+| JWT аутентификация | ✅ |
+| Rate limiting | ✅ |
+| Security headers | ✅ |
+| CORS hardening | ✅ |
+| Audit logging | ✅ |
+| DB backup | ✅ |
+
+### Auth Endpoints
+
+| Endpoint | Метод | Описание |
+|----------|-------|----------|
+| /auth/register | POST | Регистрация |
+| /auth/login | POST | Авторизация |
+| /auth/refresh | POST | Обновление токенов |
+| /auth/logout | POST | Выход |
+| /auth/me | GET | Текущий пользователь |
+
+### Security Models
+
+| Модель | Назначение |
+|--------|------------|
+| User | Пользователи с ролями |
+| UserSession | Refresh токены |
+| SecurityAuditLog | Аудит безопасности |
+| ApiKey | Service-to-service ключи |
+
 ---
 
 ## ❌ Не реализовано
@@ -129,8 +159,6 @@
 | Компонент | Приоритет | Примечание |
 |-----------|-----------|------------|
 | Integration тесты API | Средний | tests/integration/api/ |
-| Аутентификация веб-интерфейса | Средний | JWT или Basic Auth |
-| Резервное копирование БД | Средний | pg_dump cron job |
 | Sentry для ошибок | Средний | Мониторинг ошибок |
 | CI/CD (GitHub Actions) | Низкий | Автоматизация деплоя |
 | Prometheus/Grafana | Низкий | Метрики и мониторинг |

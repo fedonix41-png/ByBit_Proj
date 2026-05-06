@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     MESSAGE_MAX_LENGTH: int = 2000
     RATE_LIMIT_WINDOW: int = 60
     RATE_LIMIT_MAX: int = 15
+    RATE_LIMIT_DEFAULT_MAX: int = 100
+    RATE_LIMIT_DEFAULT_WINDOW: int = 60
     BLACKLIST_CACHE_TTL: int = 300
     MAX_VIOLATIONS_BEFORE_BAN: int = 5
 
@@ -58,7 +60,23 @@ class Settings(BaseSettings):
 
     SPAM_DETECTION_ENABLED: bool = True
     SPAM_DETECTION_THRESHOLD: float = 0.7
-    
+
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    MAX_FAILED_LOGIN_ATTEMPTS: int = 5
+    ACCOUNT_LOCKOUT_MINUTES: int = 15
+    PASSWORD_MIN_LENGTH: int = 8
+    REQUIRE_PASSWORD_UPPERCASE: bool = True
+    REQUIRE_PASSWORD_DIGIT: bool = True
+
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000")
+    SECURITY_HEADERS_ENABLED: bool = os.getenv("SECURITY_HEADERS_ENABLED", "true").lower() == "true"
+    CORS_CREDENTIALS: bool = True
+    CORS_MAX_AGE: int = 86400
+
     @property
     def db_path(self) -> Path:
         return Path(__file__).parent / self.DB_PATH

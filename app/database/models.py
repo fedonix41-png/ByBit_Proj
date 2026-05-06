@@ -187,3 +187,6 @@ class ScreenshotHash(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     order = relationship("Order")
+
+
+from .security_models import User, UserSession, SecurityAuditLog, ApiKey
