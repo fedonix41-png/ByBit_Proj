@@ -4,20 +4,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from ..database.session import SessionLocal
+from ..database.session import SessionLocal, get_db
 from ..database.security_models import User
 from .auth import validate_access_token
 
 security = HTTPBearer(auto_error=False)
-
-
-def get_db() -> Session:
-    """Get database session for FastAPI dependency injection."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 async def get_current_user(
@@ -80,21 +71,18 @@ async def get_admin_user(
     return current_user
 
 
-class OptionalAuth:
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
     """Optional authentication - returns None if not authenticated."""
+    if not credentials:
+        return None
     
-    async def __call__(
-        self,
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-        db: Session = Depends(get_db)
-    ) -> Optional[User]:
-        if not credentials:
-            return None
-        
-        token = credentials.credentials
-        payload = validate_access_token(token)
-        
-        if not payload:
-            return None
-        
-        return db.query(User).filter(User.id == payload.user_id).first()
+    token = credentials.credentials
+    payload = validate_access_token(token)
+    
+    if not payload:
+        return None
+    
+    return db.query(User).filter(User.id == payload.user_id).first()

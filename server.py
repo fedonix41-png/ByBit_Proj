@@ -18,7 +18,7 @@ from app.orchestrator.graph import p2p_graph
 from app.orchestrator.state import P2PAutomationState
 from app.core import (
     setup_logging, get_logger,
-    get_current_user, get_admin_user, OptionalAuth,
+    get_current_user, get_admin_user, get_optional_user,
     SecurityMiddleware, RateLimitMiddleware, rate_limiter,
     SecurityHeadersMiddleware, CORSSecurityMiddleware
 )
@@ -397,7 +397,7 @@ async def get_run(run_id: str, current_user: User = Depends(get_current_user)):
 @app.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    current_user: Optional[User] = Depends(OptionalAuth())
+    current_user: Optional[User] = Depends(get_optional_user)
 ):
     """WebSocket endpoint with optional authentication."""
     user_id = current_user.id if current_user else None

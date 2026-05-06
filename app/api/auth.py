@@ -14,6 +14,7 @@ from ..core.schemas import (
 )
 from ..core.deps import get_current_user
 from config import (
+    settings,
     MAX_FAILED_LOGIN_ATTEMPTS, ACCOUNT_LOCKOUT_MINUTES, JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
@@ -92,7 +93,8 @@ async def login(
         user_id=user.id,
         refresh_token_hash=hash_token(refresh_token),
         ip_address=_get_client_ip(request),
-        user_agent=request.headers.get("user-agent", "")[:500]
+        user_agent=request.headers.get("user-agent", "")[:500],
+        expires_at=datetime.utcnow() + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     )
     db.add(session)
     
@@ -144,7 +146,8 @@ async def refresh_token(
         user_id=user.id,
         refresh_token_hash=hash_token(new_refresh_token),
         ip_address=_get_client_ip(request),
-        user_agent=request.headers.get("user-agent", "")[:500]
+        user_agent=request.headers.get("user-agent", "")[:500],
+        expires_at=datetime.utcnow() + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     )
     db.add(new_session)
     db.commit()

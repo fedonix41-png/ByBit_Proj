@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 from .graph import p2p_graph
 from .state import P2PAutomationState
-from ..database.session import get_db
+from ..database.session import get_db_context as get_db
 from ..database.models import Order, Message, Decision
 
 logger = logging.getLogger(__name__)

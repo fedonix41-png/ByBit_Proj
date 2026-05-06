@@ -16,7 +16,7 @@ except ImportError:
     REDIS_AVAILABLE = False
     redis = None
 
-from ...database.session import get_db
+from ...database.session import get_db_context as get_db
 from ...database.models import BlacklistEntry, ViolationHistory, ABTestConfig, WebhookEvent
 
 

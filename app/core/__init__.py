@@ -24,11 +24,10 @@ from .schemas import (
     TokenData,
 )
 from .deps import (
-    get_db,
     get_current_user,
     get_current_active_user,
     get_admin_user,
-    OptionalAuth,
+    get_optional_user,
 )
 from .security_middleware import SecurityMiddleware
 from .rate_limit import RateLimiter, RateLimitMiddleware, rate_limiter
@@ -56,11 +55,10 @@ __all__ = [
     "RefreshTokenRequest",
     "PasswordChangeRequest",
     "TokenData",
-    "get_db",
     "get_current_user",
     "get_current_active_user",
     "get_admin_user",
-    "OptionalAuth",
+    "get_optional_user",
     "SecurityMiddleware",
     "RateLimiter",
     "RateLimitMiddleware",
