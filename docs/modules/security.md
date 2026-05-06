@@ -115,25 +115,41 @@ ALLOWED_ORIGINS=http://localhost:3000,http://example.com
 
 **Скрипт:** `scripts/backup_db.sh`
 
-### Использование
+### Возможности
 
-```bash
-# Создать backup
-./scripts/backup_db.sh
-
-# Восстановить
-./scripts/backup_db.sh --restore backups/p2p_backup_YYYYMMDD_HHMMSS.sql.gz
-
-# Список backups
-./scripts/backup_db.sh --list
-```
+- `./scripts/backup_db.sh` — создать backup (Docker)
+- `./scripts/backup_db.sh --local` — backup из локального PostgreSQL
+- `./scripts/backup_db.sh --restore <file>` — восстановить
+- `./scripts/backup_db.sh --list` — список backups
+- `./scripts/backup_db.sh --rotate` — очистка старых
 
 ### Cron (ежедневно в 2:00)
 
 ```bash
-0 2 * * * /path/to/scripts/cron_backup.sh
+# Редактировать crontab
+crontab -e
+
+# Добавить строку:
+0 2 * * * cd /path/to/project && ./scripts/cron_backup.sh >> logs/backup.log 2>&1
 ```
 
 ### Retention
 
 По умолчанию: 30 дней.
+
+### Docker Volume
+
+Backup автоматически монтируются в `./backups:/app/backups`
+
+---
+
+## Валидация конфигурации
+
+При запуске `validate_config()` проверяет:
+
+| Проверка | Условие | Предупреждение |
+|----------|---------|----------------|
+| JWT Secret | `== "change-me-in-production"` | ❌ CRITICAL в production |
+| CORS Origins | `== "*"` | ❌ CRITICAL в production |
+| JWT Secret | default значение | ⚠️ WARNING в development |
+| CORS Origins | `== "*"` | ⚠️ WARNING в development |

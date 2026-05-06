@@ -112,6 +112,20 @@ def validate_config():
     print(f"   BYBIT_TESTNET: {BYBIT_TESTNET}")
     print()
     
+    # Security warnings
+    if not settings.DEBUG:
+        if settings.JWT_SECRET_KEY == "change-me-in-production":
+            print("❌ CRITICAL: JWT_SECRET_KEY is using default value in production!")
+            print("   Generate a new key: openssl rand -hex 32")
+        if settings.ALLOWED_ORIGINS == "*":
+            print("❌ CRITICAL: ALLOWED_ORIGINS='*' is insecure in production!")
+            print("   Specify allowed domains: ALLOWED_ORIGINS=https://yourdomain.com")
+    else:
+        if settings.JWT_SECRET_KEY == "change-me-in-production":
+            print("⚠️  WARNING: JWT_SECRET_KEY using default. Change for production!")
+        if settings.ALLOWED_ORIGINS == "*":
+            print("⚠️  WARNING: ALLOWED_ORIGINS='*' allows all origins. Restrict for production!")
+    
     if USE_AI_MOCK:
         print("🤖 AI MOCK MODE: Using mock AI agents instead of real API calls.")
         print("   This is safe for development and testing.")

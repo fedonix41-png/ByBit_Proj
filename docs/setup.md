@@ -200,5 +200,15 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 # Настроить cron для ежедневного backup
 crontab -e
 # Добавьте:
-0 2 * * * cd /path/to/project && ./scripts/backup_db.sh >> logs/backup.log 2>&1
+0 2 * * * cd /path/to/project && ./scripts/cron_backup.sh >> logs/backup.log 2>&1
+
+# Или используйте готовый скрипт:
+# Редактируйте scripts/cron_backup.sh (укажите путь к проекту)
+# Затем: crontab -e и добавьте строку из комментария в скрипте
 ```
+
+### Валидация безопасности
+
+При запуске приложение автоматически проверяет:
+- JWT_SECRET_KEY — не должен быть default значением
+- ALLOWED_ORIGINS — не должен быть `*` в production
