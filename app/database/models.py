@@ -175,3 +175,15 @@ class WebhookEvent(Base):
     retry_count = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ScreenshotHash(Base):
+    """Hash storage for duplicate screenshot detection."""
+    __tablename__ = 'screenshot_hashes'
+    
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey('orders.id'), index=True, nullable=False)
+    image_hash = Column(String(64), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    order = relationship("Order")

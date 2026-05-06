@@ -12,12 +12,21 @@
 - [x] Создать структурированную документацию в /docs/
 - [x] Обновить README.md
 
-## Этап 3: Доработка AI 🔄 В ПРОЦЕССЕ
+## Этап 3: Доработка AI ✅ ЗАВЕРШЁН
 
 - [ ] Верифицировать PaymentParser на реальных скриншотах
-- [ ] Добавить правила в FraudAnalyzer
+- [x] Добавить правила в FraudAnalyzer
+  - [x] 8 rule-based проверок
+  - [x] BIN-коды 19 банков
+  - [x] BANK_ALIASES нормализация
+  - [x] duplicate_check (SHA-256)
+  - [x] metadata_check (EXIF)
+- [x] Логирование AI-взаимодействий в БД
+  - [x] AILogger с PRICING_TABLE
+  - [x] AIInteraction модель
+  - [x] ScreenshotHash модель
+  - [x] BaseAIAgent: log_to_db, agent_type, order_id, latency_ms
 - [ ] Подключить реальный Processing API
-- [ ] Логирование AI-взаимодействий в БД
 
 ## Этап 4: OpenRouter.ai ✅ ЗАВЕРШЁН
 
@@ -77,5 +86,5 @@
 ## Приоритеты на ближайший месяц
 
 1. **Тесты** — критично для стабильности
-2. **FraudAnalyzer rules** — повышение качества анализа
-3. **PaymentParser верификация** — проверка OCR
+2. **PaymentParser верификация** — проверка OCR
+3. **Processing API** — интеграция с реальным API

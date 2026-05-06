@@ -1,6 +1,7 @@
 """Base AI agent with multi-provider support."""
 import os
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from enum import Enum
@@ -20,8 +21,17 @@ class AIProvider(Enum):
 class BaseAIAgent(ABC):
     """Base class for AI agents with multi-provider support."""
     
-    def __init__(self, provider: str = None, model: str = None):
-        # Check if mock mode is enabled
+    def __init__(
+        self,
+        provider: str = None,
+        model: str = None,
+        log_to_db: bool = True,
+        agent_type: Optional[str] = None,
+    ):
+        self.log_to_db = log_to_db
+        self.agent_type = agent_type or self.__class__.__name__
+        self._ai_logger = None
+
         self.use_mock = os.getenv("USE_AI_MOCK", "false").lower() == "true"
 
         if self.use_mock:
@@ -85,36 +95,102 @@ class BaseAIAgent(ABC):
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
     
+    def _get_logger(self):
+        if self._ai_logger is None:
+            from .ai_logger import get_ai_logger
+            self._ai_logger = get_ai_logger()
+        return self._ai_logger
+    
+    async def _log_interaction(
+        self,
+        input_data: Dict[str, Any],
+        output_data: Dict[str, Any],
+        tokens_used: int,
+        latency_ms: int,
+        order_id: Optional[int] = None,
+    ) -> None:
+        if not self.log_to_db:
+            return
+        try:
+            ai_logger = self._get_logger()
+            await ai_logger.log_interaction(
+                agent_type=self.agent_type,
+                provider=self.provider.value,
+                model=self.model,
+                input_data=input_data,
+                output_data=output_data,
+                tokens_used=tokens_used,
+                latency_ms=latency_ms,
+                order_id=order_id,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log AI interaction (silent): {e}")
+    
     async def generate(self, system_prompt: str, user_prompt: str,
-                       temperature: float = 0.3, json_mode: bool = False) -> Dict[str, Any]:
-        """Generate response from AI."""
+                       temperature: float = 0.3, json_mode: bool = False,
+                       order_id: Optional[int] = None) -> Dict[str, Any]:
+        start_time = time.perf_counter()
+        input_data = {
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "temperature": temperature,
+            "json_mode": json_mode,
+        }
+        
         try:
             if self.provider == AIProvider.MOCK:
-                return await self._generate_mock(system_prompt, user_prompt, temperature, json_mode)
-
-            if self.provider == AIProvider.OPENAI:
-                return await self._generate_openai(system_prompt, user_prompt, temperature, json_mode)
-
+                result = await self._generate_mock(system_prompt, user_prompt, temperature, json_mode)
+            elif self.provider == AIProvider.OPENAI:
+                result = await self._generate_openai(system_prompt, user_prompt, temperature, json_mode)
             elif self.provider == AIProvider.ANTHROPIC:
-                return await self._generate_anthropic(system_prompt, user_prompt, temperature, json_mode)
-
+                result = await self._generate_anthropic(system_prompt, user_prompt, temperature, json_mode)
             elif self.provider == AIProvider.GROQ:
-                return await self._generate_groq(system_prompt, user_prompt, temperature, json_mode)
-
+                result = await self._generate_groq(system_prompt, user_prompt, temperature, json_mode)
             elif self.provider == AIProvider.TOGETHER:
-                return await self._generate_together(system_prompt, user_prompt, temperature, json_mode)
-
+                result = await self._generate_together(system_prompt, user_prompt, temperature, json_mode)
             elif self.provider == AIProvider.MISTRAL:
-                return await self._generate_mistral(system_prompt, user_prompt, temperature, json_mode)
-
+                result = await self._generate_mistral(system_prompt, user_prompt, temperature, json_mode)
             elif self.provider == AIProvider.LOCAL:
-                return await self._generate_local(system_prompt, user_prompt, temperature, json_mode)
-            
+                result = await self._generate_local(system_prompt, user_prompt, temperature, json_mode)
             elif self.provider == AIProvider.OPENROUTER:
-                return await self._generate_openrouter(system_prompt, user_prompt, temperature, json_mode)
+                result = await self._generate_openrouter(system_prompt, user_prompt, temperature, json_mode)
+            else:
+                raise ValueError(f"Unsupported provider: {self.provider}")
+
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            
+            tokens_used = result.get("tokens", 0)
+            await self._log_interaction(
+                input_data=input_data,
+                output_data={"content": result.get("content"), "model": result.get("model")},
+                tokens_used=tokens_used,
+                latency_ms=latency_ms,
+                order_id=order_id,
+            )
+            
+            result["latency_ms"] = latency_ms
+            return result
 
         except Exception as e:
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
             logger.error(f"AI generation error ({self.provider.value}): {e}")
+            
+            if self.log_to_db:
+                try:
+                    ai_logger = self._get_logger()
+                    await ai_logger.log_interaction(
+                        agent_type=self.agent_type,
+                        provider=self.provider.value,
+                        model=self.model,
+                        input_data=input_data,
+                        output_data={"error": str(e)},
+                        tokens_used=0,
+                        latency_ms=latency_ms,
+                        order_id=order_id,
+                    )
+                except Exception:
+                    pass
+            
             raise
     
     async def _generate_openai(self, system_prompt: str, user_prompt: str, 
