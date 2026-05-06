@@ -44,6 +44,21 @@ class Settings(BaseSettings):
     INTENT_CONFIDENCE_THRESHOLD: float = 0.7
     AI_PROVIDER: str = "openrouter"
     
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_ENABLED: bool = True
+
+    MESSAGE_MAX_LENGTH: int = 2000
+    RATE_LIMIT_WINDOW: int = 60
+    RATE_LIMIT_MAX: int = 15
+    BLACKLIST_CACHE_TTL: int = 300
+    MAX_VIOLATIONS_BEFORE_BAN: int = 5
+
+    WEBHOOK_URL: Optional[str] = None
+    WEBHOOK_ENABLED: bool = False
+
+    SPAM_DETECTION_ENABLED: bool = True
+    SPAM_DETECTION_THRESHOLD: float = 0.7
+    
     @property
     def db_path(self) -> Path:
         return Path(__file__).parent / self.DB_PATH
@@ -63,6 +78,10 @@ HOST = settings.HOST
 PORT = settings.PORT
 DEBUG = settings.DEBUG
 DB_PATH = settings.db_path
+REDIS_URL = settings.REDIS_URL
+REDIS_ENABLED = settings.REDIS_ENABLED
+WEBHOOK_URL = settings.WEBHOOK_URL
+MESSAGE_MAX_LENGTH = settings.MESSAGE_MAX_LENGTH
 
 DB_PATH.parent.mkdir(exist_ok=True)
 

@@ -85,6 +85,18 @@ llm = ChatOpenAI(
 
 ---
 
+## Redis
+
+| Пакет | Версия | Назначение |
+|-------|--------|------------|
+| redis | ≥5.0.0 | Rate limiting, кэширование |
+
+**Redis** — rate limiting и кэширование для MessageProcessor.
+
+**Docker:** сервис `redis` в docker-compose.yml
+
+---
+
 ## Внешние API
 
 | Пакет | Версия | Назначение |

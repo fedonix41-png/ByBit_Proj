@@ -38,21 +38,31 @@
 - [x] Состояния пользователя (ai_mode, current_menu)
 - [x] Vision через OpenRouter
 
-## Этап 6: Тестирование 📋 ЗАПЛАНИРОВАНО
+## Этап 6: MessageProcessor ✅ ЗАВЕРШЁН
+
+- [x] Модели БД: BlacklistEntry, ViolationHistory, ABTestConfig, WebhookEvent
+- [x] MessageProcessor с правилами безопасности
+- [x] Redis для rate limiting
+- [x] ML-детекция спама через OpenRouter
+- [x] Webhook-уведомления о нарушениях
+- [x] A/B тестирование правил
+- [x] Интеграция в telegram_handlers
+
+## Этап 7: Тестирование 📋 ЗАПЛАНИРОВАНО
 
 - [ ] Smoke-тесты
 - [ ] Логирование ошибок
 - [ ] Проверка БД при старте
 - [ ] Graceful shutdown
 
-## Этап 7: Production 📋 ЗАПЛАНИРОВАНО
+## Этап 8: Production 📋 ЗАПЛАНИРОВАНО
 
 - [ ] Аутентификация веб-интерфейса
 - [ ] Резервное копирование БД
 - [ ] Healthcheck endpoints
 - [ ] Rate limiting
 
-## Этап 8: Расширения 📋 ДОЛГОСРОЧНО
+## Этап 9: Расширения 📋 ДОЛГОСРОЧНО
 
 - [ ] Backtesting
 - [ ] Цепочки агентов

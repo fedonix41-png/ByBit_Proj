@@ -18,6 +18,22 @@ services:
     networks:
       - p2p_network
 
+  redis:
+    image: redis:7-alpine
+    container_name: p2p_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - p2p_network
+
   app:
     build:
       context: .
@@ -25,6 +41,8 @@ services:
     container_name: p2p_app
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://p2p_user:p2p_pass@postgres:5432/p2p_automation
@@ -43,6 +61,12 @@ services:
       USE_AI_MOCK: ${USE_AI_MOCK:-true}
       HOST: 0.0.0.0
       PORT: 8000
+      REDIS_URL: redis://redis:6379/0
+      REDIS_ENABLED: "true"
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      MESSAGE_MAX_LENGTH: ${MESSAGE_MAX_LENGTH:-2000}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-15}
     ports:
       - "8000:8000"
     volumes:
@@ -60,6 +84,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://p2p_user:p2p_pass@postgres:5432/p2p_automation
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
@@ -75,6 +101,10 @@ services:
       BYBIT_API_KEY: ${BYBIT_API_KEY}
       BYBIT_API_SECRET: ${BYBIT_API_SECRET}
       BYBIT_TESTNET: ${BYBIT_TESTNET:-True}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_ENABLED: "true"
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      MESSAGE_MAX_LENGTH: ${MESSAGE_MAX_LENGTH:-2000}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
@@ -84,6 +114,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   p2p_network:

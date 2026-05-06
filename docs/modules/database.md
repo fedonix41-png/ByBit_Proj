@@ -212,11 +212,56 @@ uv run alembic downgrade -1
 └─────────────┘     └─────────────┘     │   data      │
                                         └─────────────┘
 
-┌─────────────────┐
+ ┌─────────────────┐
 │ AIInteraction   │
 │                 │
 │ agent_type      │
 │ provider        │
 │ tokens_used     │
 └─────────────────┘
+```
+
+---
+
+## MessageProcessor Models
+
+### BlacklistEntry
+
+Чёрные списки.
+
+```python
+class BlacklistEntry(Base):
+    __tablename__ = 'blacklist_entries'
+    
+    id = Column(Integer, primary_key=True)
+    entry_type = Column(String(20))  # word/pattern/user_id/regex
+    value = Column(String(500))
+    severity = Column(String(20))  # low/medium/high/critical
+    is_active = Column(Boolean, default=True)
+    expires_at = Column(DateTime)
+```
+
+### ViolationHistory
+
+История нарушений.
+
+```python
+class ViolationHistory(Base):
+    __tablename__ = 'violation_history'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(100), index=True)
+    violation_type = Column(String(50))
+    severity = Column(String(20))
+    action_taken = Column(String(50))
+    detected_at = Column(DateTime)
+```
+
+### ABTestConfig / ABTestResult
+
+A/B тестирование.
+
+### WebhookEvent
+
+Webhook-события.
 ```

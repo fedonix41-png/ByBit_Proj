@@ -13,6 +13,8 @@ from telegram.ext import ContextTypes
 from loguru import logger
 
 from app.infrastructure.bridge.p2p_bridge import p2p_bridge
+from app.infrastructure.handlers.message_processor import message_processor, ProcessingResult
+from app.infrastructure.handlers.spam_detector import spam_detector
 
 TEMP_VOICE_PATH = "/tmp/p2p_voice.ogg"
 TEMP_IMAGE_PATH = "/tmp/p2p_image.jpg"
@@ -61,6 +63,12 @@ def _get_openai_client():
         return None
     
     return OpenAI(api_key=api_key)
+
+
+async def init_message_processor():
+    """Initialize message processor with Redis."""
+    await message_processor.initialize()
+    logger.info("MessageProcessor initialized")
 
 
 def set_ai_mode(context: ContextTypes.DEFAULT_TYPE, enabled: bool):
@@ -165,6 +173,21 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     logger.info(f"Text from user {user_id}: {user_message[:50]}...")
     
+    processing_result = await message_processor.process_message(
+        user_id=str(user_id),
+        message=user_message,
+        username=username,
+        user_data=context.user_data
+    )
+    
+    if not processing_result.should_process:
+        logger.warning(f"Message blocked for user {user_id}: {processing_result.metadata}")
+        if processing_result.response:
+            await update.message.reply_text(processing_result.response)
+        return
+    
+    logger.info(f"Message processed: {processing_result.metadata}")
+    
     if context.user_data.get('ai_mode'):
         await handle_ai_question(update, context)
         return
@@ -179,6 +202,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error processing text: {e}")
         await update.message.reply_text("❌ Ошибка обработки сообщения")
+
+
+async def check_spam_ml(message: str) -> bool:
+    """Check message for spam using ML. Returns True if spam detected."""
+    if not spam_detector.client.is_configured:
+        return False
+    
+    result = await spam_detector.analyze(message)
+    return result.is_spam and result.confidence > 0.7
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
