@@ -87,11 +87,48 @@
 
 ---
 
+### Тестирование
+
+| Компонент | Статус |
+|-----------|--------|
+| tests/conftest.py (fixtures) | ✅ |
+| tests/unit/ai_agents/ | ✅ base_agent, intent_classifier, fraud_analyzer |
+| tests/unit/orchestrator/ | ✅ state, graph |
+| pytest.ini | ✅ |
+| pytest-cov | ✅ |
+
+### Healthcheck
+
+| Endpoint | Статус | Описание |
+|----------|--------|----------|
+| GET /health | ✅ | Полная проверка (database, Redis) |
+| GET /health/live | ✅ | Liveness probe |
+| GET /health/ready | ✅ | Readiness probe |
+
+### Logging
+
+| Компонент | Статус |
+|-----------|--------|
+| Loguru | ✅ |
+| setup_logging() | ✅ Rotation, compression |
+| InterceptHandler | ✅ Standard logging |
+
+### Graceful Shutdown
+
+| Компонент | Статус |
+|-----------|--------|
+| SIGTERM/SIGINT handlers | ✅ |
+| check_database_connection() | ✅ |
+| 10 sec timeout | ✅ |
+| POST /shutdown | ✅ |
+
+---
+
 ## ❌ Не реализовано
 
 | Компонент | Приоритет | Примечание |
 |-----------|-----------|------------|
-| Unit/Integration тесты | Высокий | Критично для стабильности |
+| Integration тесты API | Средний | tests/integration/api/ |
 | Аутентификация веб-интерфейса | Средний | JWT или Basic Auth |
 | Резервное копирование БД | Средний | pg_dump cron job |
 | Sentry для ошибок | Средний | Мониторинг ошибок |
@@ -104,4 +141,3 @@
 
 1. **PaymentParser OCR** — может неточно распознавать скриншоты на русском
 2. **Processing API** — полностью mock, реальная интеграция отсутствует
-3. **Тесты** — отсутствуют, покрытие 0%

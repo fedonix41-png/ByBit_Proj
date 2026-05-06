@@ -1,23 +1,47 @@
 """FastAPI server with WebSocket support for P2P automation UI."""
-import logging
+import signal
 import asyncio
+import os
+from datetime import datetime
 from typing import Dict, Set
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from starlette.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from models import StartMonitorRequest, ApprovalRequest, StateResponse
 from bybit_client import bybit_client
 from app.orchestrator.graph import p2p_graph
 from app.orchestrator.state import P2PAutomationState
+from app.core import setup_logging, get_logger
 import config
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+shutdown_event = asyncio.Event()
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
+
+def signal_handler(sig, frame):
+    """Handle shutdown signals gracefully."""
+    logger.info(f"Received signal {sig}, initiating graceful shutdown...")
+    shutdown_event.set()
+
+
+def check_database_connection():
+    """Verify database connection on startup (sync)."""
+    try:
+        from app.database.session import engine
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Database connection verified")
+        return True
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
+        return False
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -54,11 +78,39 @@ active_runs: Dict[str, dict] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup/shutdown."""
+    """Application lifespan with startup/shutdown handlers."""
+    setup_logging(log_level="DEBUG" if DEBUG else "INFO", log_file="logs/app.log")
     logger.info("Starting P2P Automation Server...")
-    config.validate_config()
+    
+    try:
+        config.validate_config()
+        logger.info("Configuration validated")
+    except Exception as e:
+        logger.error(f"Configuration error: {e}")
+        raise
+    
+    db_ok = check_database_connection()
+    if not db_ok:
+        logger.warning("Database check failed - continuing anyway")
+    
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        from app.database import init_db
+        init_db()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.warning(f"Database init warning: {e}")
+    
     yield
-    logger.info("Shutting down P2P Automation Server...")
+    
+    logger.info("Initiating graceful shutdown...")
+    try:
+        await asyncio.wait_for(shutdown_event.wait(), timeout=10.0)
+    except asyncio.TimeoutError:
+        logger.warning("Shutdown timeout - forcing exit")
+    logger.info("Shutdown complete")
 
 # Create FastAPI app
 app = FastAPI(
@@ -317,7 +369,6 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive and receive any client messages
             data = await websocket.receive_text()
             logger.info(f"Received from client: {data}")
     except WebSocketDisconnect:
@@ -325,3 +376,54 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
+
+@app.get("/health")
+async def healthcheck():
+    """Health check endpoint for Docker/Kubernetes probes."""
+    checks = {
+        "status": "healthy",
+        "version": "2.1.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "components": {}
+    }
+    
+    try:
+        from app.database.session import engine
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["components"]["database"] = "ok"
+    except Exception as e:
+        checks["components"]["database"] = f"error: {str(e)[:50]}"
+        checks["status"] = "degraded"
+    
+    redis_enabled = os.getenv("REDIS_ENABLED", "false").lower() == "true"
+    if redis_enabled:
+        try:
+            import redis
+            r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+            r.ping()
+            checks["components"]["redis"] = "ok"
+        except Exception as e:
+            checks["components"]["redis"] = f"error: {str(e)[:50]}"
+            checks["status"] = "degraded"
+    else:
+        checks["components"]["redis"] = "ok (disabled)"
+    
+    status_code = 200 if checks["status"] == "healthy" else 503
+    return JSONResponse(content=checks, status_code=status_code)
+
+@app.get("/health/live")
+async def liveness():
+    """Kubernetes liveness probe."""
+    return {"status": "alive"}
+
+@app.get("/health/ready")
+async def readiness():
+    """Kubernetes readiness probe."""
+    return {"status": "ready"}
+
+@app.post("/shutdown")
+async def trigger_shutdown():
+    """Trigger graceful shutdown (for testing)."""
+    os.kill(os.getpid(), signal.SIGTERM)
+    return {"status": "shutting down"}

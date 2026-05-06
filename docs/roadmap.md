@@ -57,12 +57,31 @@
 - [x] A/B тестирование правил
 - [x] Интеграция в telegram_handlers
 
-## Этап 7: Тестирование 📋 ЗАПЛАНИРОВАНО
+## Этап 7: Тестирование ✅ ЗАВЕРШЁН
 
-- [ ] Smoke-тесты
-- [ ] Логирование ошибок
-- [ ] Проверка БД при старте
-- [ ] Graceful shutdown
+- [x] Smoke-тесты
+  - [x] tests/conftest.py с fixtures (event_loop, mock_settings, mock_db_session, mock_bybit_client)
+  - [x] tests/unit/ai_agents/test_base_agent.py
+  - [x] tests/unit/ai_agents/test_intent_classifier.py
+  - [x] tests/unit/ai_agents/test_fraud_analyzer.py (BIN, карты, телефоны)
+  - [x] tests/unit/orchestrator/test_state.py
+  - [x] tests/unit/orchestrator/test_graph.py
+- [x] Unified logging
+  - [x] app/core/logging_config.py с Loguru
+  - [x] setup_logging() с rotation и compression
+  - [x] InterceptHandler для стандартного logging
+- [x] Проверка БД при старте
+  - [x] check_database_connection() в server.py
+- [x] Graceful shutdown
+  - [x] Signal handlers для SIGTERM/SIGINT
+  - [x] Таймаут 10 сек для завершения операций
+  - [x] POST /shutdown endpoint для тестирования
+- [x] Healthcheck endpoints
+  - [x] GET /health - полная проверка (database, Redis)
+  - [x] GET /health/live - liveness probe
+  - [x] GET /health/ready - readiness probe
+- [x] pytest.ini с настройками
+- [x] Зависимости: pytest>=8.0.0, pytest-asyncio>=0.23.0, pytest-cov>=4.1.0, pytest-mock>=3.12.0
 
 ## Этап 8: Production 📋 ЗАПЛАНИРОВАНО
 

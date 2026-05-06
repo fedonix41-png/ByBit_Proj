@@ -1,30 +1,23 @@
 """Main entry point for Bybit P2P Automation system."""
-import logging
 import uvicorn
+from loguru import logger
+from app.core import setup_logging
 import config
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-logger = logging.getLogger(__name__)
+setup_logging(log_level="DEBUG" if config.DEBUG else "INFO", log_file="logs/app.log")
 
 def main():
     """Initialize and run the application."""
     try:
-        # Validate configuration
         config.validate_config()
         logger.info("Configuration validated successfully")
         
-        # Import server after config validation
         from server import app
         
         logger.info(f"Starting server on {config.HOST}:{config.PORT}")
         logger.info(f"Testnet mode: {config.BYBIT_TESTNET}")
         logger.info(f"Open http://{config.HOST}:{config.PORT} in your browser")
         
-        # Run server
         uvicorn.run(
             app,
             host=config.HOST,
