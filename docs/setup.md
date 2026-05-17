@@ -116,6 +116,28 @@ docker-compose down
 - `app` — FastAPI :8000
 - `telegram_bot` — Telegram бот
 
+#### Development vs Production
+
+⚠️ **Важно:** В `docker-compose.yml` для сервиса `app` примонтированы volumes для быстрой разработки:
+
+```yaml
+# DEVELOPMENT ONLY: remove lines below for production deployment
+- ./templates:/app/templates:ro,z
+- ./static:/app/static:ro,z
+```
+
+**Перед production деплоем:**
+1. Удалите или закомментируйте эти две строки
+2. Пересоберите образ: `docker-compose build app`
+3. Изменения в коде должны попадать в контейнер только через пересборку образа
+
+Это предотвращает:
+- Несанкционированные изменения файлов на production
+- Расхождение версий между образом и файлами
+- Потенциальные уязвимости через монтированные директории
+
+**Примечание для SELinux (Fedora/RHEL):** Суффикс `,z` необходим для перемаркировки контекста файлов. На системах без SELinux можно использовать просто `:ro`.
+
 ## Миграции БД
 
 ```bash

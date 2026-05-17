@@ -261,3 +261,8 @@
 - Обновлены JS-функции `showAuthOverlay()`/`hideAuthOverlay()` для управления видимостью
 - Удалены дублирующиеся CSS-правила (`.auth-tabs`, `.auth-form h2`, `.balance-item`, `.auth-error`)
 - Унифицированы цвета через CSS-переменные (`var(--accent)`, `var(--danger)`)
+
+### Docker volumes для development
+**Добавлено:** Монтирование `templates/` и `static/` в read-only режиме для быстрой разработки без пересборки образа.
+
+**Предупреждение:** Эти volumes должны быть удалены перед production деплоем (см. `docs/setup.md`).
