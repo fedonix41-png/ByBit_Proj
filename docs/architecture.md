@@ -42,7 +42,7 @@
 │  nodes.py ──── Узлы обработки                                   │
 │  edges.py ──── Условные переходы                                │
 │                                                                  │
-│  Персистентность: SqliteSaver                                   │
+│  Персистентность: AsyncSqliteSaver                                │
 │  Точки прерывания: response_approval, risk_approval             │
 │                                                                  │
 └────────────────────────────┬────────────────────────────────────┘
@@ -66,7 +66,7 @@
 ├─────────────────────────────────────────────────────────────────┤
 │  PostgreSQL (Docker)          SQLite (персистентность графа)    │
 │  • Order, Message             • data/checkpoints/p2p_state.db  │
-│  • Decision, Transaction      • SqliteSaver                     │
+│  • Decision, Transaction      • AsyncSqliteSaver                 │
 │  • AIInteraction              • Состояние диалогов              │
 │                                                                  │
 │  Миграции: Alembic                                              │

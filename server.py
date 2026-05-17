@@ -17,7 +17,7 @@ from models import (
     CreateAdRequest, UpdateAdRequest, SendMessageRequest, MarkPaidRequest
 )
 from bybit_client import bybit_client
-from app.orchestrator.graph import p2p_graph
+from app.orchestrator.graph import get_p2p_graph
 from app.orchestrator.state import P2PAutomationState
 from app.core import (
     setup_logging, get_logger,
@@ -437,8 +437,9 @@ async def start_monitor(request: StartMonitorRequest, current_user: User = Depen
 async def run_graph_async(run_id: str, initial_state: P2PAutomationState, config_dict: dict, user_id: Optional[int] = None):
     """Run graph asynchronously and broadcast state updates."""
     try:
+        graph = await get_p2p_graph()
         result = None
-        async for event in p2p_graph.astream(initial_state, config_dict):
+        async for event in graph.astream(initial_state, config_dict):
             logger.info(f"Graph event: {event}")
             
             if isinstance(event, dict):

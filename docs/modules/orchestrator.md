@@ -106,10 +106,17 @@ graph = workflow.compile(
 ### Персистентность
 
 ```python
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-conn = sqlite3.connect("data/checkpoints/p2p_state.db")
-memory = SqliteSaver(conn)
+checkpointer = AsyncSqliteSaver.from_conn_string("data/checkpoints/p2p_state.db")
+await checkpointer.__aenter__()
+```
+
+Используется ленивая инициализация через `get_p2p_graph()`:
+```python
+graph = await get_p2p_graph()
+async for event in graph.astream(initial_state, config):
+    ...
 ```
 
 ---

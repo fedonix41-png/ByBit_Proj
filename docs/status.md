@@ -247,7 +247,24 @@
 
 ## 🔧 Последние исправления (2026-05-17)
 
-## 🔧 Последние исправления (2026-05-17)
+### Замена SqliteSaver на AsyncSqliteSaver
+**Проблема:** При запуске мониторинга ордера ошибка:
+```
+Error in graph execution: The SqliteSaver does not support async methods.
+Consider using AsyncSqliteSaver instead.
+```
+
+**Причина:**
+- `app/orchestrator/graph.py` использовал синхронный `SqliteSaver`
+- `server.py` вызывает асинхронный метод `p2p_graph.astream()`
+- `aiosqlite` уже был установлен, но не использовался
+
+**Исправлено:**
+- Заменён импорт `SqliteSaver` → `AsyncSqliteSaver` из `langgraph.checkpoint.sqlite.aio`
+- Добавлена ленивая инициализация через `get_p2p_graph()` и `get_checkpointer()`
+- Обновлён `server.py`: `p2p_graph.astream()` → `(await get_p2p_graph()).astream()`
+- Обновлён `orchestrator.py`: все методы переведены на async API (`astream`, `aget_state`, `aupdate_state`)
+- Обновлена документация: `docs/modules/orchestrator.md`, `docs/architecture.md`
 
 ### Исправление мониторинга ордеров (sync/async)
 **Проблема:** При запуске мониторинга ордера ошибка:

@@ -72,9 +72,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./backups:/app/backups
+      - ./data:/app/data:z
+      - ./logs:/app/logs:z
+      - ./backups:/app/backups:z
       # DEVELOPMENT ONLY: remove lines below for production deployment
       - ./templates:/app/templates:ro,z
       - ./static:/app/static:ro,z
@@ -112,8 +112,8 @@ services:
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       MESSAGE_MAX_LENGTH: ${MESSAGE_MAX_LENGTH:-2000}
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ./data:/app/data:z
+      - ./logs:/app/logs:z
     networks:
       - p2p_network
     restart: unless-stopped

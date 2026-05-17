@@ -1,9 +1,9 @@
 """Main P2P automation graph."""
 import logging
-import sqlite3
 from pathlib import Path
+from typing import Optional
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from .state import P2PAutomationState
 from .nodes import (
     fetch_order_details,
@@ -30,12 +30,27 @@ from .edges import (
 
 logger = logging.getLogger(__name__)
 
-def create_p2p_graph():
+_db_path: str = "/app/data/checkpoints/p2p_state.db"
+_checkpointer_cm = None
+_checkpointer: Optional[AsyncSqliteSaver] = None
+_compiled_graph = None
+
+
+def get_db_path() -> str:
+    global _db_path
+    p = Path(_db_path)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return str(p)
+    except (PermissionError, OSError):
+        return "/tmp/p2p_state.db"
+
+
+def create_p2p_graph(checkpointer=None):
     """Create P2P automation graph."""
     
     workflow = StateGraph(P2PAutomationState)
     
-    # Add nodes
     workflow.add_node("fetch_order", fetch_order_details)
     workflow.add_node("check_messages", check_new_messages)
     workflow.add_node("classify_intent", classify_intent)
@@ -49,10 +64,8 @@ def create_p2p_graph():
     workflow.add_node("confirm_payment", confirm_payment)
     workflow.add_node("notify_completion", notify_completion)
     
-    # Entry point
     workflow.set_entry_point("fetch_order")
     
-    # Edges
     workflow.add_edge("fetch_order", "check_messages")
     
     workflow.add_conditional_edges(
@@ -109,23 +122,33 @@ def create_p2p_graph():
     workflow.add_edge("confirm_payment", "notify_completion")
     workflow.add_edge("notify_completion", END)
     
-    db_path = Path("/app/data/checkpoints/p2p_state.db")
-    try:
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(db_path), check_same_thread=False)
-    except (PermissionError, sqlite3.OperationalError):
-        db_path = Path("/tmp/p2p_state.db")
-        conn = sqlite3.connect(str(db_path), check_same_thread=False)
-    
-    memory = SqliteSaver(conn)
-    
     graph = workflow.compile(
-        checkpointer=memory,
+        checkpointer=checkpointer,
         interrupt_before=["await_response_approval", "await_risk_approval"]
     )
     
     logger.info("P2P automation graph compiled successfully")
     return graph
 
-# Global graph instance
-p2p_graph = create_p2p_graph()
+
+async def get_checkpointer() -> AsyncSqliteSaver:
+    """Get or create async checkpointer singleton."""
+    global _checkpointer_cm, _checkpointer
+    if _checkpointer is None:
+        db_path = get_db_path()
+        _checkpointer_cm = AsyncSqliteSaver.from_conn_string(db_path)
+        _checkpointer = await _checkpointer_cm.__aenter__()
+        await _checkpointer.setup()
+    return _checkpointer
+
+
+async def get_p2p_graph():
+    """Get compiled graph with async checkpointer."""
+    global _compiled_graph
+    if _compiled_graph is None:
+        checkpointer = await get_checkpointer()
+        _compiled_graph = create_p2p_graph(checkpointer)
+    return _compiled_graph
+
+
+p2p_graph = None
