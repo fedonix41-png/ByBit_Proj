@@ -438,7 +438,7 @@ async def run_graph_async(run_id: str, initial_state: P2PAutomationState, config
     """Run graph asynchronously and broadcast state updates."""
     try:
         result = None
-        for event in p2p_graph.stream(initial_state, config_dict):
+        async for event in p2p_graph.astream(initial_state, config_dict):
             logger.info(f"Graph event: {event}")
             
             if isinstance(event, dict):

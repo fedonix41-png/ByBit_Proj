@@ -247,6 +247,34 @@
 
 ## 🔧 Последние исправления (2026-05-17)
 
+## 🔧 Последние исправления (2026-05-17)
+
+### Исправление мониторинга ордеров (sync/async)
+**Проблема:** При запуске мониторинга ордера ошибка:
+```
+Error in graph execution: No synchronous function provided to "fetch_order".
+Either initialize with a synchronous function or invoke via the async API (ainvoke, astream, etc.)
+```
+
+**Причина:**
+- Все узлы графа (`app/orchestrator/nodes.py`) объявлены как `async def`
+- В `server.py` граф вызывался синхронно через `p2p_graph.stream()`
+- LangGraph требует async API (`astream`) для async-узлов
+
+**Исправлено:**
+- В `run_graph_async()` заменён `for event in p2p_graph.stream(...)` на `async for event in p2p_graph.astream(...)`
+- Теперь весь пайплайн мониторинга выполняется корректно в асинхронном контексте
+
+### Обновление списков валют в UI
+**Проблема:** В выпадающих списках для выбора валют (поиск публичных объявлений и создание объявления) были только тестовые значения (RUB, USD) и 3 криптовалюты.
+
+**Исправлено:**
+- **Фиатные валюты** — расширено до 25 валют, поддерживаемых ByBit P2P:
+  - RUB, USD, EUR, CNY, HKD, KZT, UAH, TRY, GBP, AED, CAD, AUD
+  - THB, VND, INR, IDR, MYR, PHP, SGD, JPY, BRL, MXN, KRW, TWD, CHF
+- **Криптовалюты** — USDT, BTC, ETH (по документации ByBit P2P API)
+- Все валюты отображаются с расширенными названиями (например, `RUB — Российский рубль`)
+
 ### Исправление отображения веб-интерфейса
 **Проблема:** При отсутствии авторизации все элементы (включая форму авторизации) отображались на одной странице.
 
