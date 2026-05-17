@@ -69,4 +69,4 @@ pytest --cov=app --cov-report=term-missing
 
 ## CI/CD
 
-Тесты запускаются автоматически в GitHub Actions.
+CI/CD планируется в будущих версиях.
