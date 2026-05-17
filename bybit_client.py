@@ -415,7 +415,11 @@ class BybitClient:
         """Get account balance.
         
         API: get_current_balance(accountType, coin)
-        Response: result.balance (camelCase format!)
+        Response: result.balance with fields:
+          - coin: currency
+          - transferBalance: available for transfer
+          - walletBalance: total balance
+          - bonus: bonus amount
         """
         try:
             if not self.use_mock:
@@ -434,11 +438,14 @@ class BybitClient:
                 balances = []
                 items = response.get('result', {}).get('balance', [])
                 for item in items:
+                    wallet_balance = float(item.get('walletBalance', 0) or 0)
+                    transfer_balance = float(item.get('transferBalance', 0) or 0)
+                    
                     balances.append(Balance(
                         currency=item.get('coin', ''),
-                        available=float(item.get('availableBalance', 0)),
-                        locked=float(item.get('frozenBalance', 0) or item.get('locked', 0)),
-                        total=float(item.get('walletBalance', 0) or item.get('total', 0))
+                        available=transfer_balance,
+                        locked=wallet_balance - transfer_balance,
+                        total=wallet_balance
                     ))
                 return balances
             

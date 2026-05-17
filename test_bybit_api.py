@@ -50,7 +50,10 @@ def run_test(name: str, func: Callable, client) -> TestResult:
             # Извлекаем полезную информацию из result
             if isinstance(result, dict):
                 if 'balance' in result:
-                    info = f"balance: {len(result['balance'])} coins"
+                    # Balance response
+                    balance_list = result.get('balance', [])
+                    coins = [b.get('coin') for b in balance_list if b.get('coin')]
+                    info = f"balance: {len(balance_list)} coins ({', '.join(coins) if coins else 'empty'})"
                 elif 'items' in result:
                     info = f"items: {len(result['items'])}"
                 elif 'list' in result:
@@ -100,7 +103,7 @@ def test_user_payment_types(client) -> dict:
 
 def test_current_balance(client) -> dict:
     """Get Current Balance - баланс кошелька."""
-    return client.get_current_balance(accountType="FUND", coin="USDT")
+    return client.get_current_balance(accountType="FUND")
 
 
 # =============================================================================
