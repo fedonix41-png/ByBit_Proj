@@ -249,6 +249,63 @@ class BybitClient:
             logger.error(f"Error cancelling order: {e}")
             return False
     
+    def update_ad(self, ad_id: str, price: float = None, min_amount: float = None, 
+                  max_amount: float = None) -> bool:
+        """Update an existing advertisement.
+        
+        API: update_ad(adId, price, minAmount, maxAmount, ...)
+        """
+        try:
+            if not self.use_mock:
+                params = {"adId": ad_id}
+                if price is not None:
+                    params["price"] = str(price)
+                if min_amount is not None:
+                    params["minAmount"] = str(min_amount)
+                if max_amount is not None:
+                    params["maxAmount"] = str(max_amount)
+                
+                response = self.client.update_ad(**params)
+                success = self._check_response(response, 'update_ad')
+                if success:
+                    logger.info(f"Updated ad {ad_id}")
+                return success
+            
+            logger.info(f"[MOCK] Updating ad {ad_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating ad: {e}")
+            return False
+    
+    def get_ad_details(self, ad_id: str) -> Optional[Dict]:
+        """Get detailed information about a specific advertisement.
+        
+        API: get_ad_details(adId)
+        Response: result
+        """
+        try:
+            if not self.use_mock:
+                response = self.client.get_ad_details(adId=ad_id)
+                if not self._check_response(response, 'get_ad_details'):
+                    return None
+                return response.get('result')
+            
+            return {
+                "ad_id": ad_id,
+                "side": "SELL",
+                "crypto": "USDT",
+                "currency": "RUB",
+                "price": 95.5,
+                "min_amount": 100,
+                "max_amount": 10000,
+                "available_amount": 5000,
+                "status": "active",
+                "payment_methods": [],
+            }
+        except Exception as e:
+            logger.error(f"Error fetching ad details: {e}")
+            return None
+    
     # =========================================================================
     # PAYMENT & RELEASE
     # =========================================================================
@@ -377,6 +434,29 @@ class BybitClient:
             logger.error(f"Error sending message to {order_id}: {e}")
             return False
     
+    def upload_chat_file(self, order_id: str, file_path: str) -> bool:
+        """Upload a file to order chat (e.g., payment screenshot).
+        
+        API: upload_chat_file(orderId, file)
+        Note: This method requires the file to be accessible on disk.
+        """
+        try:
+            if not self.use_mock:
+                response = self.client.upload_chat_file(
+                    orderId=order_id,
+                    file=file_path
+                )
+                success = self._check_response(response, 'upload_chat_file')
+                if success:
+                    logger.info(f"File uploaded to {order_id}")
+                return success
+            
+            logger.info(f"[MOCK] Uploading file to {order_id}: {file_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error uploading file to {order_id}: {e}")
+            return False
+    
     # =========================================================================
     # USER & PAYMENT METHODS
     # =========================================================================
@@ -406,6 +486,72 @@ class BybitClient:
     def get_payment_methods(self) -> List[Dict]:
         """Get available payment methods (alias for get_user_payment_types)."""
         return self.get_user_payment_types()
+    
+    # =========================================================================
+    # USER & ACCOUNT INFO
+    # =========================================================================
+    
+    def get_account_information(self) -> Optional[Dict]:
+        """Get P2P account information.
+        
+        API: get_account_information()
+        Response: result (userId, nickName, status, level, etc.)
+        """
+        try:
+            if not self.use_mock:
+                response = self.client.get_account_information()
+                if not self._check_response(response, 'get_account_information'):
+                    return None
+                result = response.get('result', {})
+                return {
+                    "user_id": result.get('userId', ''),
+                    "nickname": result.get('nickName', ''),
+                    "status": result.get('status', 'unknown'),
+                    "level": result.get('level', 0),
+                    "registered_at": datetime.fromtimestamp(int(result.get('regTime', 0)) / 1000) if result.get('regTime') else None,
+                }
+            
+            return {
+                "user_id": "mock_user_001",
+                "nickname": "TestUser",
+                "status": "active",
+                "level": 1,
+                "registered_at": datetime.now(),
+            }
+        except Exception as e:
+            logger.error(f"Error fetching account info: {e}")
+            return None
+    
+    def get_counterparty_info(self, order_id: str) -> Optional[Dict]:
+        """Get counterparty information from an order.
+        
+        API: get_counterparty_info(orderId)
+        Response: result
+        """
+        try:
+            if not self.use_mock:
+                response = self.client.get_counterparty_info(orderId=order_id)
+                if not self._check_response(response, 'get_counterparty_info'):
+                    return None
+                result = response.get('result', {})
+                return {
+                    "nickname": result.get('nickName', 'Unknown'),
+                    "rating": float(result.get('rating', 0) or 0),
+                    "trades_count": int(result.get('recentOrderCount', 0) or 0),
+                    "cancellation_rate": float(result.get('cancelRate', 0) or 0),
+                    "online_status": result.get('onlineStatus', 'unknown'),
+                }
+            
+            return {
+                "nickname": "Counterparty",
+                "rating": 4.8,
+                "trades_count": 150,
+                "cancellation_rate": 0.02,
+                "online_status": "online",
+            }
+        except Exception as e:
+            logger.error(f"Error fetching counterparty info: {e}")
+            return None
     
     # =========================================================================
     # BALANCE

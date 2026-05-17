@@ -66,6 +66,9 @@ history = bybit_client.get_trade_history(limit=20)  # List[Dict]
 # Отправить сообщение в чат
 success = bybit_client.send_chat_message(order_id, "Текст сообщения")
 
+# Загрузить файл в чат (скриншот оплаты)
+success = bybit_client.upload_chat_file(order_id, "/path/to/file.jpg")
+
 # Пометить как оплачено (для покупателя)
 success = bybit_client.mark_as_paid(order_id, payment_type, payment_id)
 
@@ -83,8 +86,20 @@ ad_id = bybit_client.create_ad(
     payment_methods=["payment_id"]
 )
 
+# Обновить объявление
+success = bybit_client.update_ad(ad_id, price=96.0, min_amount=200)
+
+# Получить детали объявления
+details = bybit_client.get_ad_details(ad_id)
+
 # Отменить объявление
 success = bybit_client.cancel_order(ad_id)
+
+# Получить информацию об аккаунте
+account = bybit_client.get_account_information()
+
+# Получить информацию о контрагенте
+counterparty = bybit_client.get_counterparty_info(order_id)
 ```
 
 ### Устаревшие методы
@@ -189,15 +204,22 @@ uv pip install bybit-p2p
 |--------------|-----------|----------|
 | `get_ads_list()` | `P2P.get_ads_list()` | `/v5/p2p/item/personal/list` |
 | `get_online_ads()` | `P2P.get_online_ads()` | `/v5/p2p/item/online` |
+| `get_ad_details()` | `P2P.get_ad_details()` | `/v5/p2p/item/info` |
+| `create_ad()` | `P2P.post_new_ad()` | `/v5/p2p/item/create` |
+| `update_ad()` | `P2P.update_ad()` | `/v5/p2p/item/update` |
+| `cancel_order()` | `P2P.remove_ad()` | `/v5/p2p/item/delete` |
 | `get_orders()` | `P2P.get_orders(page, size)` | `/v5/p2p/order/simplifyList` |
 | `get_pending_orders()` | `P2P.get_pending_orders(page, size)` | `/v5/p2p/order/pending/simplifyList` |
 | `get_order_details()` | `P2P.get_order_details(orderId)` | `/v5/p2p/order/info` |
 | `get_chat_messages()` | `P2P.get_chat_messages(orderId, size)` | `/v5/p2p/order/message/listpage` |
 | `send_chat_message()` | `P2P.send_chat_message(...)` | `/v5/p2p/order/message/send` |
+| `upload_chat_file()` | `P2P.upload_chat_file(...)` | `/v5/p2p/order/message/upload` |
 | `mark_as_paid()` | `P2P.mark_as_paid(orderId, ...)` | `/v5/p2p/order/pay` |
 | `release_assets()` | `P2P.release_assets(orderId)` | `/v5/p2p/order/finish` |
 | `get_balance()` | `P2P.get_current_balance(...)` | `/v5/asset/transfer/query-account-coins-balance` |
 | `get_user_payment_types()` | `P2P.get_user_payment_types()` | `/v5/p2p/user/payment/list` |
+| `get_account_information()` | `P2P.get_account_information()` | `/v5/p2p/user/personal/info` |
+| `get_counterparty_info()` | `P2P.get_counterparty_info()` | `/v5/p2p/user/personal/info` |
 
 ### Форматы ответов
 

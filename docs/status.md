@@ -17,6 +17,71 @@
 | Docker Compose | `docker-compose.yml` | ✅ Работает |
 | Redis | `docker-compose.yml` | ✅ Работает |
 
+### Веб-интерфейс (REST API)
+
+| Эндпоинт | Метод | Функция | Статус |
+|----------|-------|---------|--------|
+| `/api/ads` | GET | Список объявлений | ✅ |
+| `/api/ads` | POST | Создать объявление | ✅ |
+| `/api/ads/{id}` | GET | Детали объявления | ✅ |
+| `/api/ads/{id}` | PUT | Обновить объявление | ✅ |
+| `/api/ads/{id}` | DELETE | Удалить объявление | ✅ |
+| `/api/ads/online` | GET | Публичные объявления | ✅ |
+| `/api/orders` | GET | Все ордера | ✅ |
+| `/api/orders/pending` | GET | Ожидающие ордера | ✅ |
+| `/api/order/{id}` | GET | Детали ордера | ✅ |
+| `/api/order/{id}/mark_paid` | POST | Отметить оплаченным | ✅ |
+| `/api/order/{id}/release` | POST | Отпустить активы | ✅ |
+| `/api/order/{id}/cancel` | POST | Отменить ордер | ✅ |
+| `/api/chat/{id}` | GET | Сообщения чата | ✅ |
+| `/api/chat/{id}/send` | POST | Отправить сообщение | ✅ |
+| `/api/balance` | GET | Баланс | ✅ |
+| `/api/payment_methods` | GET | Способы оплаты | ✅ |
+| `/api/account` | GET | Информация об аккаунте | ✅ |
+| `/api/counterparty/{id}` | GET | Информация о контрагенте | ✅ |
+| `/api/trade_history` | GET | История сделок | ✅ |
+| `/api/start_monitor` | POST | Запуск мониторинга | ✅ |
+| `/api/approve/{id}` | POST | Подтверждение действия | ✅ |
+
+### Веб-интерфейс (UI)
+
+| Компонент | Статус |
+|-----------|--------|
+| Табовая навигация (5 табов) | ✅ |
+| Таб «Объявления» | ✅ CRUD + поиск публичных |
+| Таб «Ордера» | ✅ Списки + действия |
+| Таб «Чат» | ✅ Сообщения + отправка |
+| Таб «Аккаунт» | ✅ Баланс, методы, контрагент |
+| Таб «Мониторинг» | ✅ Запуск + approval UI |
+| JWT авторизация | ✅ |
+| WebSocket real-time | ✅ |
+| Toast уведомления | ✅ |
+| Модальные окна | ✅ |
+
+### Bybit Client методы
+
+| Метод | Статус |
+|-------|--------|
+| `get_ads_list()` | ✅ |
+| `get_online_ads()` | ✅ |
+| `get_ad_details()` | ✅ |
+| `create_ad()` | ✅ |
+| `update_ad()` | ✅ |
+| `cancel_order()` / `remove_ad()` | ✅ |
+| `get_orders()` | ✅ |
+| `get_pending_orders()` | ✅ |
+| `get_order_details()` | ✅ |
+| `get_chat_messages()` | ✅ |
+| `send_chat_message()` | ✅ |
+| `upload_chat_file()` | ✅ |
+| `mark_as_paid()` | ✅ |
+| `release_assets()` | ✅ |
+| `get_balance()` | ✅ |
+| `get_user_payment_types()` | ✅ |
+| `get_account_information()` | ✅ |
+| `get_counterparty_info()` | ✅ |
+| `get_trade_history()` | ✅ |
+
 ### AI-агенты
 
 | Агент | Статус | Примечание |
@@ -177,3 +242,22 @@
 
 1. **PaymentParser OCR** — может неточно распознавать скриншоты на русском
 2. **Processing API** — полностью mock, реальная интеграция отсутствует
+
+---
+
+## 🔧 Последние исправления (2026-05-17)
+
+### Исправление отображения веб-интерфейса
+**Проблема:** При отсутствии авторизации все элементы (включая форму авторизации) отображались на одной странице.
+
+**Причина:** 
+- Основной контент `.container` был видим по умолчанию
+- Отсутствовал общий CSS-класс `.hidden`
+- Дублирующиеся CSS-правила
+
+**Исправлено:**
+- Добавлен общий CSS-класс `.hidden { display: none !important; }`
+- Основной контент `.container` теперь скрыт по умолчанию (`id="main-container" class="hidden"`)
+- Обновлены JS-функции `showAuthOverlay()`/`hideAuthOverlay()` для управления видимостью
+- Удалены дублирующиеся CSS-правила (`.auth-tabs`, `.auth-form h2`, `.balance-item`, `.auth-error`)
+- Унифицированы цвета через CSS-переменные (`var(--accent)`, `var(--danger)`)

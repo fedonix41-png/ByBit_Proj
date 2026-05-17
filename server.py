@@ -12,7 +12,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from sqlalchemy import text
 
-from models import StartMonitorRequest, ApprovalRequest, StateResponse
+from models import (
+    StartMonitorRequest, ApprovalRequest, StateResponse,
+    CreateAdRequest, UpdateAdRequest, SendMessageRequest, MarkPaidRequest
+)
 from bybit_client import bybit_client
 from app.orchestrator.graph import p2p_graph
 from app.orchestrator.state import P2PAutomationState
@@ -164,6 +167,80 @@ async def get_ads(current_user: User = Depends(get_current_user)):
         logger.error(f"Error fetching ads: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/ads")
+async def create_ad(request: CreateAdRequest, current_user: User = Depends(get_current_user)):
+    """Create a new P2P advertisement (requires authentication)."""
+    try:
+        ad_id = bybit_client.create_ad(
+            side=request.side,
+            currency=request.currency,
+            crypto=request.crypto,
+            price=request.price,
+            min_amount=request.min_amount,
+            max_amount=request.max_amount,
+            payment_methods=request.payment_methods
+        )
+        if ad_id:
+            return {"success": True, "ad_id": ad_id}
+        raise HTTPException(status_code=400, detail="Failed to create ad")
+    except Exception as e:
+        logger.error(f"Error creating ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ads/online")
+async def get_online_ads(
+    token: str = "USDT",
+    currency: str = "RUB",
+    side: str = "SELL",
+    current_user: User = Depends(get_current_user)
+):
+    """Get public online advertisements (requires authentication)."""
+    try:
+        ads = bybit_client.get_online_ads(token=token, currency=currency, side="1" if side == "SELL" else "0")
+        return {"success": True, "data": ads}
+    except Exception as e:
+        logger.error(f"Error fetching online ads: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ads/{ad_id}")
+async def get_ad_details(ad_id: str, current_user: User = Depends(get_current_user)):
+    """Get advertisement details (requires authentication)."""
+    try:
+        details = bybit_client.get_ad_details(ad_id)
+        if details:
+            return {"success": True, "data": details}
+        raise HTTPException(status_code=404, detail="Ad not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching ad details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/ads/{ad_id}")
+async def update_ad(ad_id: str, request: UpdateAdRequest, current_user: User = Depends(get_current_user)):
+    """Update an advertisement (requires authentication)."""
+    try:
+        success = bybit_client.update_ad(
+            ad_id=ad_id,
+            price=request.price,
+            min_amount=request.min_amount,
+            max_amount=request.max_amount
+        )
+        return {"success": success, "message": "Ad updated" if success else "Failed to update"}
+    except Exception as e:
+        logger.error(f"Error updating ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/ads/{ad_id}")
+async def delete_ad(ad_id: str, current_user: User = Depends(get_current_user)):
+    """Delete an advertisement (requires authentication)."""
+    try:
+        success = bybit_client.cancel_order(ad_id)
+        return {"success": success, "message": "Ad deleted" if success else "Failed to delete"}
+    except Exception as e:
+        logger.error(f"Error deleting ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/chat/{order_id}")
 async def get_chat(order_id: str, current_user: User = Depends(get_current_user)):
     """Get chat messages for an order (requires authentication)."""
@@ -172,6 +249,16 @@ async def get_chat(order_id: str, current_user: User = Depends(get_current_user)
         return {"success": True, "data": [msg.model_dump() for msg in messages]}
     except Exception as e:
         logger.error(f"Error fetching chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/{order_id}/send")
+async def send_chat_message(order_id: str, request: SendMessageRequest, current_user: User = Depends(get_current_user)):
+    """Send a message in order chat (requires authentication)."""
+    try:
+        success = bybit_client.send_chat_message(order_id, request.text)
+        return {"success": success, "message": "Message sent" if success else "Failed to send"}
+    except Exception as e:
+        logger.error(f"Error sending message: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/balance")
@@ -192,6 +279,34 @@ async def get_payment_methods(current_user: User = Depends(get_current_user)):
         return {"success": True, "data": methods}
     except Exception as e:
         logger.error(f"Error fetching payment methods: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/account")
+async def get_account_info(current_user: User = Depends(get_current_user)):
+    """Get account information (requires authentication)."""
+    try:
+        info = bybit_client.get_account_information()
+        if info:
+            return {"success": True, "data": info}
+        raise HTTPException(status_code=404, detail="Account info not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching account info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/counterparty/{order_id}")
+async def get_counterparty_info(order_id: str, current_user: User = Depends(get_current_user)):
+    """Get counterparty information (requires authentication)."""
+    try:
+        info = bybit_client.get_counterparty_info(order_id)
+        if info:
+            return {"success": True, "data": info}
+        raise HTTPException(status_code=404, detail="Counterparty not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching counterparty info: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/order/{order_id}")
@@ -236,6 +351,50 @@ async def get_trade_history(current_user: User = Depends(get_current_user)):
         return {"success": True, "data": history}
     except Exception as e:
         logger.error(f"Error fetching trade history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/orders")
+async def get_orders(page: int = 1, size: int = 20, current_user: User = Depends(get_current_user)):
+    """Get all orders (requires authentication)."""
+    try:
+        orders = bybit_client.get_orders(page=page, size=size)
+        return {"success": True, "data": orders, "page": page, "size": size}
+    except Exception as e:
+        logger.error(f"Error fetching orders: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/orders/pending")
+async def get_pending_orders(page: int = 1, size: int = 20, current_user: User = Depends(get_current_user)):
+    """Get pending orders (requires authentication)."""
+    try:
+        orders = bybit_client.get_pending_orders(page=page, size=size)
+        return {"success": True, "data": orders, "page": page, "size": size}
+    except Exception as e:
+        logger.error(f"Error fetching pending orders: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/order/{order_id}/mark_paid")
+async def mark_order_paid(order_id: str, request: MarkPaidRequest, current_user: User = Depends(get_current_user)):
+    """Mark order as paid (buyer action, requires authentication)."""
+    try:
+        success = bybit_client.mark_as_paid(
+            order_id=order_id,
+            payment_type=request.payment_type,
+            payment_id=request.payment_id
+        )
+        return {"success": success, "message": "Order marked as paid" if success else "Failed"}
+    except Exception as e:
+        logger.error(f"Error marking order as paid: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/order/{order_id}/release")
+async def release_order_assets(order_id: str, current_user: User = Depends(get_current_user)):
+    """Release assets to buyer (seller action, requires authentication)."""
+    try:
+        success = bybit_client.release_assets(order_id)
+        return {"success": success, "message": "Assets released" if success else "Failed"}
+    except Exception as e:
+        logger.error(f"Error releasing assets: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/start_monitor")

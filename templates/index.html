@@ -5,56 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bybit P2P Automation</title>
     <link rel="stylesheet" href="/static/style.css">
-    <style>
-.auth-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-.auth-overlay.hidden { display: none; }
-.auth-form {
-    background: #1a1a2e;
-    padding: 2rem;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 400px;
-}
-.auth-form h2 { margin: 0 0 1.5rem 0; text-align: center; color: #fff; }
-.auth-form .form-group { margin-bottom: 1rem; }
-.auth-form label { display: block; margin-bottom: 0.5rem; color: #aaa; }
-.auth-form input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #333;
-    border-radius: 6px;
-    background: #0f0f1a;
-    color: #fff;
-    font-size: 1rem;
-    box-sizing: border-box;
-}
-.auth-form .btn { width: 100%; margin-top: 1rem; padding: 0.75rem; }
-.auth-error { background: #ff4444; color: white; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; display: none; }
-.auth-tabs { display: flex; margin-bottom: 1.5rem; }
-.auth-tabs button { flex: 1; padding: 0.75rem; background: transparent; border: none; color: #666; cursor: pointer; border-bottom: 2px solid transparent; }
-.auth-tabs button.active { color: #4a9eff; border-bottom-color: #4a9eff; }
-.user-info { display: flex; align-items: center; gap: 1rem; }
-.user-info .username { color: #4a9eff; }
-.btn-logout { background: transparent; border: 1px solid #ff6b6b; color: #ff6b6b; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; }
-.header-right { display: flex; align-items: center; gap: 1rem; }
-    </style>
 </head>
 <body>
     <!-- Auth Overlay -->
     <div id="auth-overlay" class="auth-overlay">
         <div class="auth-form">
-            <h2>🔐 Авторизация</h2>
+            <h2>Авторизация</h2>
             <div class="auth-tabs">
-                <button id="tab-login" class="active" onclick="showTab('login')">Вход</button>
-                <button id="tab-register" onclick="showTab('register')">Регистрация</button>
+                <button id="tab-login" class="active" onclick="showAuthTab('login')">Вход</button>
+                <button id="tab-register" onclick="showAuthTab('register')">Регистрация</button>
             </div>
             <div id="auth-error" class="auth-error"></div>
             <form id="login-form" onsubmit="handleLogin(event)">
@@ -86,9 +45,9 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="container hidden" id="main-container">
         <header>
-            <h1>🤖 Bybit P2P Automation</h1>
+            <h1>Bybit P2P Automation</h1>
             <div class="header-right">
                 <div class="user-info" id="user-info" style="display:none">
                     <span class="username" id="current-username"></span>
@@ -101,70 +60,166 @@
             </div>
         </header>
 
-        <div class="grid">
-            <!-- Balance Section -->
-            <section class="card">
-                <h2>💰 Баланс</h2>
-                <button onclick="loadBalance()" class="btn btn-secondary">Обновить</button>
-                <div id="balance-list" class="balance-list">
-                    <p class="text-muted">Нажмите "Обновить" для загрузки баланса</p>
-                </div>
-            </section>
+        <!-- Tab Navigation -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="ads" onclick="showTab('ads')">Объявления</button>
+            <button class="tab-btn" data-tab="orders" onclick="showTab('orders')">Ордера</button>
+            <button class="tab-btn" data-tab="chat" onclick="showTab('chat')">Чат</button>
+            <button class="tab-btn" data-tab="account" onclick="showTab('account')">Аккаунт</button>
+            <button class="tab-btn" data-tab="monitor" onclick="showTab('monitor')">Мониторинг</button>
+        </nav>
 
-            <!-- Orders Section -->
-            <section class="card">
-                <h2>📋 Мои объявления</h2>
-                <button onclick="loadAds()" class="btn btn-secondary">Обновить</button>
-                <div id="ads-list" class="ads-list">
+        <!-- Tab: Ads -->
+        <div id="tab-ads" class="tab-content">
+            <div class="tab-header">
+                <h2>Мои объявления</h2>
+                <button onclick="openCreateAdModal()" class="btn btn-primary">+ Создать объявление</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-actions">
+                    <button onclick="loadAds()" class="btn btn-secondary">Обновить</button>
+                </div>
+                <div id="ads-list" class="data-list">
                     <p class="text-muted">Нажмите "Обновить" для загрузки объявлений</p>
                 </div>
-            </section>
+            </div>
 
-            <!-- Trade History Section -->
-            <section class="card">
-                <h2>📜 История сделок</h2>
-                <button onclick="loadTradeHistory()" class="btn btn-secondary">Обновить</button>
-                <div id="trade-history" class="trade-history">
-                    <p class="text-muted">Нажмите "Обновить" для загрузки истории</p>
+            <div class="card">
+                <h3>Поиск публичных объявлений</h3>
+                <div class="filters">
+                    <select id="online-token" class="form-select">
+                        <option value="USDT">USDT</option>
+                        <option value="BTC">BTC</option>
+                        <option value="ETH">ETH</option>
+                    </select>
+                    <select id="online-currency" class="form-select">
+                        <option value="RUB">RUB</option>
+                        <option value="USD">USD</option>
+                    </select>
+                    <select id="online-side" class="form-select">
+                        <option value="SELL">Продажа</option>
+                        <option value="BUY">Покупка</option>
+                    </select>
+                    <button onclick="searchOnlineAds()" class="btn btn-secondary">Найти</button>
                 </div>
-            </section>
+                <div id="online-ads-list" class="data-list"></div>
+            </div>
+        </div>
 
-            <!-- Payment Methods Section -->
-            <section class="card">
-                <h2>💳 Способы оплаты</h2>
-                <button onclick="loadPaymentMethods()" class="btn btn-secondary">Обновить</button>
-                <div id="payment-methods" class="payment-methods">
-                    <p class="text-muted">Нажмите "Обновить" для загрузки</p>
+        <!-- Tab: Orders -->
+        <div id="tab-orders" class="tab-content" style="display:none">
+            <div class="tab-header">
+                <h2>Ордера</h2>
+                <div class="filters">
+                    <select id="order-filter" class="form-select" onchange="loadOrders()">
+                        <option value="all">Все</option>
+                        <option value="pending">Ожидающие</option>
+                    </select>
                 </div>
-            </section>
+            </div>
+            
+            <div class="card">
+                <div class="card-actions">
+                    <button onclick="loadOrders()" class="btn btn-secondary">Обновить</button>
+                </div>
+                <div id="orders-list" class="data-list">
+                    <p class="text-muted">Нажмите "Обновить" для загрузки ордеров</p>
+                </div>
+            </div>
+        </div>
 
-            <!-- Chat Section -->
-            <section class="card full-width">
-                <h2>💬 Чат</h2>
+        <!-- Tab: Chat -->
+        <div id="tab-chat" class="tab-content" style="display:none">
+            <div class="tab-header">
+                <h2>Чат</h2>
+            </div>
+            
+            <div class="card">
                 <div class="chat-controls">
-                    <select id="order-select" class="select">
+                    <select id="chat-order-select" class="form-select">
                         <option value="">Выберите ордер</option>
                     </select>
                     <button onclick="loadChat()" class="btn btn-secondary">Загрузить чат</button>
-                    <button onclick="loadOrderDetails()" class="btn btn-secondary">🔍 Детали ордера</button>
-                    <button onclick="startMonitoring()" class="btn btn-primary">🚀 Запустить мониторинг</button>
+                    <button onclick="loadOrderDetails()" class="btn btn-secondary">Детали ордера</button>
                 </div>
+                
                 <div id="order-details" class="order-details" style="display: none;">
-                    <h3>📊 Детали ордера</h3>
+                    <h3>Детали ордера</h3>
                     <div id="order-details-content"></div>
-                    <div class="order-actions">
-                        <button onclick="confirmPayment()" class="btn btn-success">✅ Подтвердить оплату</button>
-                        <button onclick="cancelOrder()" class="btn btn-danger">❌ Отменить ордер</button>
-                    </div>
+                    <div class="order-actions" id="order-actions"></div>
                 </div>
+                
                 <div id="chat-messages" class="chat-messages">
                     <p class="text-muted">Выберите ордер и загрузите чат</p>
                 </div>
-            </section>
+                
+                <div class="chat-input-area" id="chat-input-area" style="display:none">
+                    <input type="text" id="chat-input" class="form-input" placeholder="Введите сообщение...">
+                    <button onclick="sendChatMessage()" class="btn btn-primary">Отправить</button>
+                </div>
+            </div>
+        </div>
 
-            <!-- Approval Section -->
-            <section class="card full-width approval-section" id="approval-section" style="display: none;">
-                <h2>⚠️ Требуется подтверждение</h2>
+        <!-- Tab: Account -->
+        <div id="tab-account" class="tab-content" style="display:none">
+            <div class="tab-header">
+                <h2>Аккаунт</h2>
+            </div>
+            
+            <div class="grid-2col">
+                <div class="card">
+                    <h3>Информация</h3>
+                    <button onclick="loadAccountInfo()" class="btn btn-secondary">Обновить</button>
+                    <div id="account-info" class="info-block">
+                        <p class="text-muted">Нажмите "Обновить" для загрузки информации</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Баланс</h3>
+                    <button onclick="loadBalance()" class="btn btn-secondary">Обновить</button>
+                    <div id="balance-list" class="data-list">
+                        <p class="text-muted">Нажмите "Обновить" для загрузки баланса</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Способы оплаты</h3>
+                    <button onclick="loadPaymentMethods()" class="btn btn-secondary">Обновить</button>
+                    <div id="payment-methods" class="data-list">
+                        <p class="text-muted">Нажмите "Обновить" для загрузки</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Контрагент</h3>
+                    <div class="form-group">
+                        <input type="text" id="counterparty-order-id" class="form-input" placeholder="Order ID">
+                    </div>
+                    <button onclick="loadCounterpartyInfo()" class="btn btn-secondary">Получить информацию</button>
+                    <div id="counterparty-info" class="info-block"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Monitor -->
+        <div id="tab-monitor" class="tab-content" style="display:none">
+            <div class="tab-header">
+                <h2>Мониторинг ордеров</h2>
+            </div>
+            
+            <div class="card">
+                <div class="chat-controls">
+                    <select id="monitor-order-select" class="form-select">
+                        <option value="">Выберите ордер</option>
+                    </select>
+                    <button onclick="startMonitoring()" class="btn btn-primary">Запустить мониторинг</button>
+                </div>
+            </div>
+
+            <section class="card approval-section" id="approval-section" style="display: none;">
+                <h2>Требуется подтверждение</h2>
                 <div id="approval-content">
                     <div class="approval-info">
                         <p><strong>Ордер:</strong> <span id="approval-order"></span></p>
@@ -173,23 +228,96 @@
                         <div class="proposed-response" id="approval-response"></div>
                     </div>
                     <div class="approval-actions">
-                        <button onclick="approveAction(true)" class="btn btn-success">✓ Подтвердить</button>
-                        <button onclick="approveAction(false)" class="btn btn-danger">✗ Отклонить</button>
+                        <button onclick="approveAction(true)" class="btn btn-success">Подтвердить</button>
+                        <button onclick="approveAction(false)" class="btn btn-danger">Отклонить</button>
                     </div>
                 </div>
             </section>
 
-            <!-- Activity Log -->
-            <section class="card full-width">
-                <h2>📊 Журнал активности</h2>
+            <div class="card">
+                <h3>Активные мониторинги</h3>
+                <div id="active-runs" class="data-list"></div>
+            </div>
+
+            <div class="card">
+                <h3>Журнал активности</h3>
                 <div id="activity-log" class="activity-log"></div>
-            </section>
+            </div>
         </div>
     </div>
 
-    <script>
-        let accessToken = null;
+    <!-- Create Ad Modal -->
+    <div id="create-ad-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Создать объявление</h2>
+            <form id="create-ad-form" onsubmit="handleCreateAd(event)">
+                <div class="form-group">
+                    <label>Тип</label>
+                    <select id="ad-side" class="form-select" required>
+                        <option value="SELL">Продажа</option>
+                        <option value="BUY">Покупка</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Криптовалюта</label>
+                        <select id="ad-crypto" class="form-select" required>
+                            <option value="USDT">USDT</option>
+                            <option value="BTC">BTC</option>
+                            <option value="ETH">ETH</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Валюта</label>
+                        <select id="ad-currency" class="form-select" required>
+                            <option value="RUB">RUB</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Цена</label>
+                    <input type="number" id="ad-price" class="form-input" step="0.01" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Мин. сумма</label>
+                        <input type="number" id="ad-min-amount" class="form-input" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Макс. сумма</label>
+                        <input type="number" id="ad-max-amount" class="form-input" step="0.01" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Способы оплаты</label>
+                    <div id="payment-methods-select" class="checkbox-group"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="closeCreateAdModal()" class="btn btn-secondary">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        // =====================================================
+        // STATE
+        // =====================================================
+        let accessToken = null;
+        let currentTab = 'ads';
+        let ws = null;
+        let currentRunId = null;
+        let selectedOrderId = null;
+        let paymentMethodsCache = [];
+
+        // =====================================================
+        // AUTH
+        // =====================================================
         function getStoredToken() { return localStorage.getItem('access_token'); }
         function getStoredRefreshToken() { return localStorage.getItem('refresh_token'); }
         function setTokens(access, refresh) {
@@ -202,21 +330,26 @@
             localStorage.removeItem('refresh_token');
             accessToken = null;
         }
+
         function showAuthOverlay() {
             document.getElementById('auth-overlay').classList.remove('hidden');
+            document.getElementById('main-container').classList.add('hidden');
             document.getElementById('user-info').style.display = 'none';
         }
         function hideAuthOverlay() {
             document.getElementById('auth-overlay').classList.add('hidden');
+            document.getElementById('main-container').classList.remove('hidden');
             document.getElementById('user-info').style.display = 'flex';
         }
-        function showTab(tab) {
+
+        function showAuthTab(tab) {
             document.getElementById('tab-login').classList.toggle('active', tab === 'login');
             document.getElementById('tab-register').classList.toggle('active', tab === 'register');
             document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
             document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
             document.getElementById('auth-error').style.display = 'none';
         }
+
         function showAuthError(msg) {
             const el = document.getElementById('auth-error');
             el.textContent = msg;
@@ -301,6 +434,9 @@
             if (!token) { showAuthOverlay(); throw new Error('Not authenticated'); }
             options.headers = options.headers || {};
             options.headers['Authorization'] = 'Bearer ' + token;
+            if (options.body && typeof options.body === 'string' && !options.headers['Content-Type']) {
+                options.headers['Content-Type'] = 'application/json';
+            }
             let response = await fetch(url, options);
             if (response.status === 401) {
                 const refreshed = await refreshAccessToken();
@@ -324,19 +460,38 @@
                     document.getElementById('current-username').textContent = user.username;
                     hideAuthOverlay();
                     connectWebSocket();
-                    loadBalance();
-                    loadAds();
+                    loadPaymentMethodsCache();
+                    showTab('ads');
                 } else { showAuthOverlay(); }
             } catch (error) { showAuthOverlay(); }
         }
 
-        let ws = null;
-        let currentRunId = null;
-        let selectedOrderId = null;
+        // =====================================================
+        // TABS
+        // =====================================================
+        function showTab(tabName) {
+            currentTab = tabName;
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
+            
+            switch(tabName) {
+                case 'ads': loadAds(); break;
+                case 'orders': loadOrders(); break;
+                case 'chat': loadPendingOrdersForSelect('chat-order-select'); break;
+                case 'account': loadAccountInfo(); loadBalance(); break;
+                case 'monitor': loadPendingOrdersForSelect('monitor-order-select'); loadActiveRuns(); break;
+            }
+        }
 
+        // =====================================================
+        // WEBSOCKET
+        // =====================================================
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            const token = getStoredToken();
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${token}`);
             
             ws.onopen = () => {
                 updateStatus('connected', 'Подключено');
@@ -345,13 +500,11 @@
             
             ws.onclose = () => {
                 updateStatus('disconnected', 'Отключено');
-                addLog('WebSocket отключен. Переподключение через 3 сек...', 'warning');
+                addLog('WebSocket отключен. Переподключение...', 'warning');
                 setTimeout(connectWebSocket, 3000);
             };
             
-            ws.onerror = (error) => {
-                addLog('Ошибка WebSocket', 'error');
-            };
+            ws.onerror = (error) => addLog('Ошибка WebSocket', 'error');
             
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
@@ -360,23 +513,22 @@
         }
 
         function updateStatus(status, text) {
-            const dot = document.getElementById('ws-status');
-            const textEl = document.getElementById('ws-text');
-            dot.className = `status-dot ${status}`;
-            textEl.textContent = text;
+            document.getElementById('ws-status').className = 'status-dot ' + status;
+            document.getElementById('ws-text').textContent = text;
         }
 
         function handleWebSocketMessage(data) {
-            addLog(`${data.type}: ${JSON.stringify(data)}`, 'info');
+            addLog(`${data.type}`, 'info');
             
             switch(data.type) {
                 case 'monitor_started':
                     currentRunId = data.run_id;
-                    addLog(`Мониторинг запущен для ордера ${data.order_id}`, 'success');
+                    addLog(`Мониторинг запущен: ${data.order_id}`, 'success');
+                    loadActiveRuns();
                     break;
                     
                 case 'state_update':
-                    if (data.state.approval_required) {
+                    if (data.state && (data.state.response_approval_required || data.state.risk_approval_required)) {
                         showApproval(data);
                     }
                     break;
@@ -384,26 +536,480 @@
                 case 'monitor_completed':
                     addLog('Мониторинг завершен', 'success');
                     hideApproval();
-                    currentRunId = null;
+                    loadActiveRuns();
                     break;
                     
                 case 'error':
                     addLog(`Ошибка: ${data.error}`, 'error');
+                    showToast(data.error, 'error');
                     break;
             }
         }
 
-        function showApproval(data) {
-            const section = document.getElementById('approval-section');
-            document.getElementById('approval-order').textContent = data.state.order_id;
-            document.getElementById('approval-intent').textContent = data.state.intent || 'неизвестно';
-            document.getElementById('approval-response').textContent = data.state.proposed_response || '';
-            section.style.display = 'block';
-            currentRunId = data.run_id;
+        // =====================================================
+        // ADS API
+        // =====================================================
+        async function loadAds() {
+            try {
+                const response = await authFetch('/api/ads');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderAdsList(result.data);
+                }
+            } catch (error) {
+                showToast('Ошибка загрузки объявлений: ' + error, 'error');
+            }
         }
 
-        function hideApproval() {
-            document.getElementById('approval-section').style.display = 'none';
+        function renderAdsList(ads) {
+            const container = document.getElementById('ads-list');
+            if (!ads || ads.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет объявлений</p>';
+                return;
+            }
+            
+            container.innerHTML = ads.map(ad => `
+                <div class="data-item">
+                    <div class="data-header">
+                        <span class="badge ${ad.side === 'SELL' ? 'badge-sell' : 'badge-buy'}">${ad.side === 'SELL' ? 'Продажа' : 'Покупка'}</span>
+                        <span class="data-id">${ad.order_id}</span>
+                        <span class="data-status">${ad.status}</span>
+                    </div>
+                    <div class="data-details">
+                        ${ad.amount} ${ad.crypto} @ ${ad.price} ${ad.currency}
+                    </div>
+                    <div class="data-actions">
+                        <button onclick="editAd('${ad.order_id}')" class="btn btn-sm btn-secondary">Редактировать</button>
+                        <button onclick="deleteAd('${ad.order_id}')" class="btn btn-sm btn-danger">Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function searchOnlineAds() {
+            const token = document.getElementById('online-token').value;
+            const currency = document.getElementById('online-currency').value;
+            const side = document.getElementById('online-side').value;
+            
+            try {
+                const response = await authFetch(`/api/ads/online?token=${token}&currency=${currency}&side=${side}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderOnlineAdsList(result.data);
+                }
+            } catch (error) {
+                showToast('Ошибка поиска: ' + error, 'error');
+            }
+        }
+
+        function renderOnlineAdsList(ads) {
+            const container = document.getElementById('online-ads-list');
+            if (!ads || ads.length === 0) {
+                container.innerHTML = '<p class="text-muted">Объявления не найдены</p>';
+                return;
+            }
+            
+            container.innerHTML = ads.map(ad => `
+                <div class="data-item">
+                    <div class="data-header">
+                        <span class="data-id">${ad.id || ad.userId}</span>
+                        <span class="data-price">${ad.price} ${ad.currencyId}</span>
+                    </div>
+                    <div class="data-details">
+                        ${ad.minAmount || '?'} - ${ad.maxAmount || '?'} ${ad.currencyId}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function openCreateAdModal() {
+            await loadPaymentMethodsCache();
+            renderPaymentMethodsCheckboxes();
+            document.getElementById('create-ad-modal').classList.remove('hidden');
+        }
+
+        function closeCreateAdModal() {
+            document.getElementById('create-ad-modal').classList.add('hidden');
+            document.getElementById('create-ad-form').reset();
+        }
+
+        async function loadPaymentMethodsCache() {
+            if (paymentMethodsCache.length === 0) {
+                try {
+                    const response = await authFetch('/api/payment_methods');
+                    const result = await response.json();
+                    if (result.success) {
+                        paymentMethodsCache = result.data || [];
+                    }
+                } catch (e) {}
+            }
+        }
+
+        function renderPaymentMethodsCheckboxes() {
+            const container = document.getElementById('payment-methods-select');
+            if (paymentMethodsCache.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет доступных способов оплаты</p>';
+                return;
+            }
+            
+            container.innerHTML = paymentMethodsCache.map(pm => `
+                <label class="checkbox-label">
+                    <input type="checkbox" name="payment_method" value="${pm.id}">
+                    ${pm.name}
+                </label>
+            `).join('');
+        }
+
+        async function handleCreateAd(e) {
+            e.preventDefault();
+            
+            const checkedMethods = document.querySelectorAll('input[name="payment_method"]:checked');
+            const paymentMethods = Array.from(checkedMethods).map(cb => cb.value);
+            
+            if (paymentMethods.length === 0) {
+                showToast('Выберите хотя бы один способ оплаты', 'error');
+                return;
+            }
+            
+            const data = {
+                side: document.getElementById('ad-side').value,
+                crypto: document.getElementById('ad-crypto').value,
+                currency: document.getElementById('ad-currency').value,
+                price: parseFloat(document.getElementById('ad-price').value),
+                min_amount: parseFloat(document.getElementById('ad-min-amount').value),
+                max_amount: parseFloat(document.getElementById('ad-max-amount').value),
+                payment_methods: paymentMethods
+            };
+            
+            try {
+                const response = await authFetch('/api/ads', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Объявление создано: ' + result.ad_id, 'success');
+                    closeCreateAdModal();
+                    loadAds();
+                } else {
+                    showToast('Ошибка создания объявления', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
+        }
+
+        async function deleteAd(adId) {
+            if (!confirm('Удалить объявление ' + adId + '?')) return;
+            
+            try {
+                const response = await authFetch('/api/ads/' + adId, { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Объявление удалено', 'success');
+                    loadAds();
+                } else {
+                    showToast('Ошибка удаления', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
+        }
+
+        function editAd(adId) {
+            showToast('Редактирование: ' + adId + ' (в разработке)', 'info');
+        }
+
+        // =====================================================
+        // ORDERS API
+        // =====================================================
+        async function loadOrders() {
+            const filter = document.getElementById('order-filter').value;
+            const endpoint = filter === 'pending' ? '/api/orders/pending' : '/api/orders';
+            
+            try {
+                const response = await authFetch(endpoint);
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderOrdersList(result.data);
+                    updateChatOrderSelect(result.data);
+                }
+            } catch (error) {
+                showToast('Ошибка загрузки ордеров: ' + error, 'error');
+            }
+        }
+
+        function renderOrdersList(orders) {
+            const container = document.getElementById('orders-list');
+            if (!orders || orders.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет ордеров</p>';
+                return;
+            }
+            
+            container.innerHTML = orders.map(order => `
+                <div class="data-item" onclick="selectOrder('${order.id}')">
+                    <div class="data-header">
+                        <span class="badge ${order.side === '1' ? 'badge-sell' : 'badge-buy'}">${order.side === '1' ? 'Продажа' : 'Покупка'}</span>
+                        <span class="data-id">${order.id}</span>
+                        <span class="data-status">${order.status}</span>
+                    </div>
+                    <div class="data-details">
+                        ${order.amount || '?'} ${order.tokenId || 'USDT'} @ ${order.price || '?'} ${order.currencyId || 'RUB'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateChatOrderSelect(orders) {
+            const selects = ['chat-order-select', 'monitor-order-select'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    select.innerHTML = '<option value="">Выберите ордер</option>' +
+                        (orders || []).map(o => `<option value="${o.id}">${o.id}</option>`).join('');
+                }
+            });
+        }
+
+        async function loadPendingOrdersForSelect(selectId) {
+            try {
+                const response = await authFetch('/api/orders/pending');
+                const result = await response.json();
+                if (result.success) {
+                    updateChatOrderSelect(result.data);
+                }
+            } catch (e) {}
+        }
+
+        function selectOrder(orderId) {
+            selectedOrderId = orderId;
+            showTab('chat');
+            document.getElementById('chat-order-select').value = orderId;
+            loadChat();
+        }
+
+        // =====================================================
+        // CHAT API
+        // =====================================================
+        async function loadChat() {
+            const orderId = document.getElementById('chat-order-select').value;
+            if (!orderId) {
+                showToast('Выберите ордер', 'warning');
+                return;
+            }
+            
+            selectedOrderId = orderId;
+            
+            try {
+                const response = await authFetch('/api/chat/' + orderId);
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderChatMessages(result.data);
+                    document.getElementById('chat-input-area').style.display = 'flex';
+                }
+            } catch (error) {
+                showToast('Ошибка загрузки чата: ' + error, 'error');
+            }
+        }
+
+        function renderChatMessages(messages) {
+            const container = document.getElementById('chat-messages');
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет сообщений</p>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => `
+                <div class="message ${msg.sender}">
+                    <div class="message-header">
+                        <span class="sender">${msg.sender === 'me' ? 'Вы' : 'Контрагент'}</span>
+                        <span class="timestamp">${new Date(msg.timestamp).toLocaleString('ru-RU')}</span>
+                    </div>
+                    <div class="message-text">${msg.text}</div>
+                </div>
+            `).join('');
+        }
+
+        async function sendChatMessage() {
+            const orderId = document.getElementById('chat-order-select').value;
+            const text = document.getElementById('chat-input').value.trim();
+            
+            if (!orderId || !text) return;
+            
+            try {
+                const response = await authFetch('/api/chat/' + orderId + '/send', {
+                    method: 'POST',
+                    body: JSON.stringify({ text: text })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('chat-input').value = '';
+                    loadChat();
+                    showToast('Сообщение отправлено', 'success');
+                } else {
+                    showToast('Ошибка отправки', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
+        }
+
+        async function loadOrderDetails() {
+            const orderId = document.getElementById('chat-order-select').value;
+            if (!orderId) {
+                showToast('Выберите ордер', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await authFetch('/api/order/' + orderId);
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderOrderDetails(result.data);
+                }
+            } catch (error) {
+                showToast('Ошибка загрузки деталей: ' + error, 'error');
+            }
+        }
+
+        function renderOrderDetails(details) {
+            const container = document.getElementById('order-details-content');
+            container.innerHTML = `
+                <p><strong>Ордер:</strong> ${details.order_id}</p>
+                <p><strong>Статус:</strong> ${details.status}</p>
+                <p><strong>Тип:</strong> ${details.side}</p>
+                <p><strong>Сумма:</strong> ${details.amount} ${details.crypto}</p>
+                <p><strong>Цена:</strong> ${details.price} ${details.currency}</p>
+                <p><strong>Способ оплаты:</strong> ${details.payment_method || 'N/A'}</p>
+                <p><strong>Контрагент:</strong> ${details.counterparty || 'N/A'}</p>
+            `;
+            
+            const actionsContainer = document.getElementById('order-actions');
+            actionsContainer.innerHTML = '';
+            
+            if (details.status === 'pending' || details.status === '10') {
+                if (details.side === 'BUY') {
+                    actionsContainer.innerHTML = `
+                        <button onclick="markOrderPaid('${details.order_id}')" class="btn btn-success">Отметить оплаченным</button>
+                    `;
+                } else {
+                    actionsContainer.innerHTML = `
+                        <button onclick="releaseAssets('${details.order_id}')" class="btn btn-success">Отпустить активы</button>
+                    `;
+                }
+                actionsContainer.innerHTML += `
+                    <button onclick="cancelOrder('${details.order_id}')" class="btn btn-danger">Отменить</button>
+                `;
+            }
+            
+            document.getElementById('order-details').style.display = 'block';
+        }
+
+        async function markOrderPaid(orderId) {
+            if (!confirm('Подтвердить оплату ордера ' + orderId + '?')) return;
+            
+            if (paymentMethodsCache.length === 0) {
+                await loadPaymentMethodsCache();
+            }
+            
+            if (paymentMethodsCache.length === 0) {
+                showToast('Нет доступных способов оплаты', 'error');
+                return;
+            }
+            
+            const pm = paymentMethodsCache[0];
+            
+            try {
+                const response = await authFetch('/api/order/' + orderId + '/mark_paid', {
+                    method: 'POST',
+                    body: JSON.stringify({ payment_type: pm.type || 'BANK_CARD', payment_id: pm.id })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Ордер отмечен как оплаченный', 'success');
+                    loadOrderDetails();
+                } else {
+                    showToast('Ошибка: ' + (result.message || 'Unknown'), 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
+        }
+
+        async function releaseAssets(orderId) {
+            if (!confirm('Отпустить криптовалюту покупателю?')) return;
+            
+            try {
+                const response = await authFetch('/api/order/' + orderId + '/release', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Активы отпущены', 'success');
+                    loadOrderDetails();
+                } else {
+                    showToast('Ошибка: ' + (result.message || 'Unknown'), 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
+        }
+
+        async function cancelOrder(orderId) {
+            if (!confirm('Отменить ордер ' + orderId + '?')) return;
+            
+            try {
+                const response = await authFetch('/api/order/' + orderId + '/cancel', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Ордер отменён', 'success');
+                    document.getElementById('order-details').style.display = 'none';
+                } else {
+                    showToast('Ошибка отмены', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
+        }
+
+        // =====================================================
+        // ACCOUNT API
+        // =====================================================
+        async function loadAccountInfo() {
+            try {
+                const response = await authFetch('/api/account');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderAccountInfo(result.data);
+                }
+            } catch (error) {
+                showToast('Ошибка загрузки аккаунта: ' + error, 'error');
+            }
+        }
+
+        function renderAccountInfo(info) {
+            const container = document.getElementById('account-info');
+            if (!info) {
+                container.innerHTML = '<p class="text-muted">Информация недоступна</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <div class="info-row"><span>User ID:</span><span>${info.user_id || 'N/A'}</span></div>
+                <div class="info-row"><span>Никнейм:</span><span>${info.nickname || 'N/A'}</span></div>
+                <div class="info-row"><span>Статус:</span><span>${info.status || 'N/A'}</span></div>
+                <div class="info-row"><span>Уровень:</span><span>${info.level || 0}</span></div>
+            `;
         }
 
         async function loadBalance() {
@@ -412,155 +1018,27 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    const html = result.data.map(b => `
-                        <div class="balance-item">
-                            <span class="currency">${b.currency}</span>
-                            <span class="amount">${b.available.toFixed(2)}</span>
-                            <span class="text-muted">доступно</span>
-                        </div>
-                    `).join('');
-                    document.getElementById('balance-list').innerHTML = html;
-                    addLog('Баланс обновлен', 'success');
+                    renderBalance(result.data);
                 }
             } catch (error) {
-                addLog(`Ошибка загрузки баланса: ${error}`, 'error');
+                showToast('Ошибка загрузки баланса: ' + error, 'error');
             }
         }
 
-        async function loadAds() {
-            try {
-                const response = await authFetch('/api/ads');
-                const result = await response.json();
-                
-                if (result.success) {
-                    const select = document.getElementById('order-select');
-                    select.innerHTML = '<option value="">Выберите ордер</option>' +
-                        result.data.map(ad => `
-                            <option value="${ad.order_id}">${ad.order_id} - ${ad.side} ${ad.amount} ${ad.crypto} @ ${ad.price} ${ad.currency}</option>
-                        `).join('');
-                    
-                    const html = result.data.map(ad => `
-                        <div class="ad-item">
-                            <div class="ad-header">
-                                <span class="badge ${ad.side === 'SELL' ? 'badge-sell' : 'badge-buy'}">${ad.side}</span>
-                                <span class="order-id">${ad.order_id}</span>
-                                <span class="status">${ad.status}</span>
-                            </div>
-                            <div class="ad-details">
-                                ${ad.amount} ${ad.crypto} @ ${ad.price} ${ad.currency}
-                            </div>
-                        </div>
-                    `).join('');
-                    document.getElementById('ads-list').innerHTML = html;
-                    addLog('Объявления обновлены', 'success');
-                }
-            } catch (error) {
-                addLog(`Ошибка загрузки объявлений: ${error}`, 'error');
-            }
-        }
-
-        async function loadChat() {
-            const orderId = document.getElementById('order-select').value;
-            if (!orderId) {
-                addLog('Выберите ордер', 'warning');
+        function renderBalance(balances) {
+            const container = document.getElementById('balance-list');
+            if (!balances || balances.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет данных</p>';
                 return;
             }
             
-            selectedOrderId = orderId;
-            
-            try {
-                const response = await authFetch(`/api/chat/${orderId}`);
-                const result = await response.json();
-                
-                if (result.success) {
-                    const html = result.data.map(msg => `
-                        <div class="message ${msg.sender}">
-                            <div class="message-header">
-                                <span class="sender">${msg.sender === 'me' ? 'Вы' : 'Контрагент'}</span>
-                                <span class="timestamp">${new Date(msg.timestamp).toLocaleString('ru-RU')}</span>
-                            </div>
-                            <div class="message-text">${msg.text}</div>
-                        </div>
-                    `).join('');
-                    document.getElementById('chat-messages').innerHTML = html || '<p class="text-muted">Нет сообщений</p>';
-                    addLog('Чат загружен', 'success');
-                }
-            } catch (error) {
-                addLog(`Ошибка загрузки чата: ${error}`, 'error');
-            }
-        }
-
-        async function startMonitoring() {
-            const orderId = document.getElementById('order-select').value;
-            if (!orderId) {
-                addLog('Выберите ордер', 'warning');
-                return;
-            }
-            
-            try {
-                const response = await authFetch('/api/start_monitor', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({order_id: orderId})
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    currentRunId = result.run_id;
-                    addLog(`Мониторинг запущен: ${result.run_id}`, 'success');
-                }
-            } catch (error) {
-                addLog(`Ошибка запуска мониторинга: ${error}`, 'error');
-            }
-        }
-
-        async function approveAction(approved) {
-            if (!currentRunId) {
-                addLog('Нет активного запроса на подтверждение', 'warning');
-                return;
-            }
-            
-            try {
-                const response = await authFetch(`/api/approve/${currentRunId}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({approved: approved})
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    addLog(`Действие ${approved ? 'подтверждено' : 'отклонено'}`, 'success');
-                    hideApproval();
-                }
-            } catch (error) {
-                addLog(`Ошибка подтверждения: ${error}`, 'error');
-            }
-        }
-
-        async function loadTradeHistory() {
-            try {
-                const response = await authFetch('/api/trade_history');
-                const result = await response.json();
-                
-                if (result.success) {
-                    const html = result.data.map(trade => `
-                        <div class="trade-item">
-                            <div class="trade-header">
-                                <span class="badge ${trade.side === 'SELL' ? 'badge-sell' : 'badge-buy'}">${trade.side}</span>
-                                <span class="order-id">${trade.order_id}</span>
-                                <span class="status">${trade.status}</span>
-                            </div>
-                            <div class="trade-details">
-                                ${trade.amount} ${trade.crypto} @ ${trade.price} ${trade.currency}
-                            </div>
-                        </div>
-                    `).join('');
-                    document.getElementById('trade-history').innerHTML = html || '<p class="text-muted">Нет истории</p>';
-                    addLog('История сделок загружена', 'success');
-                }
-            } catch (error) {
-                addLog(`Ошибка загрузки истории: ${error}`, 'error');
-            }
+            container.innerHTML = balances.map(b => `
+                <div class="balance-item">
+                    <span class="currency">${b.currency}</span>
+                    <span class="amount">${b.available.toFixed(4)}</span>
+                    <span class="text-muted">доступно</span>
+                </div>
+            `).join('');
         }
 
         async function loadPaymentMethods() {
@@ -569,125 +1047,191 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    const html = result.data.map(method => `
-                        <div class="payment-method">
-                            <span class="method-name">${method.name}</span>
-                            <span class="method-type">${method.type}</span>
-                        </div>
-                    `).join('');
-                    document.getElementById('payment-methods').innerHTML = html;
-                    addLog('Способы оплаты загружены', 'success');
+                    paymentMethodsCache = result.data || [];
+                    renderPaymentMethods(paymentMethodsCache);
                 }
             } catch (error) {
-                addLog(`Ошибка загрузки способов оплаты: ${error}`, 'error');
+                showToast('Ошибка загрузки способов оплаты: ' + error, 'error');
             }
         }
 
-        async function loadOrderDetails() {
-            const orderId = document.getElementById('order-select').value;
+        function renderPaymentMethods(methods) {
+            const container = document.getElementById('payment-methods');
+            if (!methods || methods.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет способов оплаты</p>';
+                return;
+            }
+            
+            container.innerHTML = methods.map(m => `
+                <div class="data-item">
+                    <span class="method-name">${m.name}</span>
+                    <span class="method-type">${m.type || ''}</span>
+                </div>
+            `).join('');
+        }
+
+        async function loadCounterpartyInfo() {
+            const orderId = document.getElementById('counterparty-order-id').value.trim();
             if (!orderId) {
-                addLog('Выберите ордер', 'warning');
+                showToast('Введите Order ID', 'warning');
                 return;
             }
             
             try {
-                const response = await authFetch(`/api/order/${orderId}`);
+                const response = await authFetch('/api/counterparty/' + orderId);
                 const result = await response.json();
                 
                 if (result.success) {
-                    const details = result.data;
-                    const html = `
-                        <p><strong>Ордер:</strong> ${details.order_id}</p>
-                        <p><strong>Статус:</strong> ${details.status}</p>
-                        <p><strong>Тип:</strong> ${details.side}</p>
-                        <p><strong>Сумма:</strong> ${details.amount} ${details.crypto}</p>
-                        <p><strong>Цена:</strong> ${details.price} ${details.currency}</p>
-                        <p><strong>Способ оплаты:</strong> ${details.payment_method}</p>
-                        <p><strong>Контрагент:</strong> ${details.counterparty}</p>
-                    `;
-                    document.getElementById('order-details-content').innerHTML = html;
-                    document.getElementById('order-details').style.display = 'block';
-                    addLog('Детали ордера загружены', 'success');
+                    renderCounterpartyInfo(result.data);
+                } else {
+                    showToast('Контрагент не найден', 'error');
                 }
             } catch (error) {
-                addLog(`Ошибка загрузки деталей: ${error}`, 'error');
+                showToast('Ошибка: ' + error, 'error');
             }
         }
 
-        async function confirmPayment() {
-            const orderId = document.getElementById('order-select').value;
-            if (!orderId) {
-                addLog('Выберите ордер', 'warning');
+        function renderCounterpartyInfo(info) {
+            const container = document.getElementById('counterparty-info');
+            if (!info) {
+                container.innerHTML = '<p class="text-muted">Информация недоступна</p>';
                 return;
             }
             
-            if (!confirm('Подтвердить оплату и отправить криптовалюту?')) {
+            container.innerHTML = `
+                <div class="info-row"><span>Никнейм:</span><span>${info.nickname || 'N/A'}</span></div>
+                <div class="info-row"><span>Рейтинг:</span><span>${info.rating || 0}</span></div>
+                <div class="info-row"><span>Сделок:</span><span>${info.trades_count || 0}</span></div>
+                <div class="info-row"><span>Отмен:</span><span>${(info.cancellation_rate * 100).toFixed(1)}%</span></div>
+            `;
+        }
+
+        // =====================================================
+        // MONITOR
+        // =====================================================
+        async function startMonitoring() {
+            const orderId = document.getElementById('monitor-order-select').value;
+            if (!orderId) {
+                showToast('Выберите ордер', 'warning');
                 return;
             }
             
             try {
-                const response = await authFetch(`/api/order/${orderId}/confirm_payment`, {
-                    method: 'POST'
+                const response = await authFetch('/api/start_monitor', {
+                    method: 'POST',
+                    body: JSON.stringify({ order_id: orderId })
                 });
                 const result = await response.json();
                 
                 if (result.success) {
-                    addLog('Оплата подтверждена!', 'success');
-                } else {
-                    addLog('Ошибка подтверждения оплаты', 'error');
+                    currentRunId = result.run_id;
+                    showToast('Мониторинг запущен', 'success');
+                    addLog('Мониторинг запущен: ' + orderId, 'success');
                 }
             } catch (error) {
-                addLog(`Ошибка: ${error}`, 'error');
+                showToast('Ошибка: ' + error, 'error');
             }
         }
 
-        async function cancelOrder() {
-            const orderId = document.getElementById('order-select').value;
-            if (!orderId) {
-                addLog('Выберите ордер', 'warning');
+        async function loadActiveRuns() {
+            try {
+                const response = await authFetch('/api/runs');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderActiveRuns(result.data);
+                }
+            } catch (e) {}
+        }
+
+        function renderActiveRuns(runs) {
+            const container = document.getElementById('active-runs');
+            if (!runs || Object.keys(runs).length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет активных мониторингов</p>';
                 return;
             }
             
-            if (!confirm('Отменить ордер?')) {
+            container.innerHTML = Object.entries(runs).map(([runId, run]) => `
+                <div class="data-item">
+                    <div class="data-header">
+                        <span class="data-id">${run.order_id}</span>
+                        <span class="data-status ${run.status}">${run.status}</span>
+                    </div>
+                    <div class="data-details">Run: ${runId}</div>
+                </div>
+            `).join('');
+        }
+
+        function showApproval(data) {
+            document.getElementById('approval-order').textContent = data.state.order_id;
+            document.getElementById('approval-intent').textContent = data.state.intent || 'неизвестно';
+            document.getElementById('approval-response').textContent = data.state.proposed_response || '';
+            document.getElementById('approval-section').style.display = 'block';
+            currentRunId = data.run_id;
+        }
+
+        function hideApproval() {
+            document.getElementById('approval-section').style.display = 'none';
+        }
+
+        async function approveAction(approved) {
+            if (!currentRunId) {
+                showToast('Нет активного запроса', 'warning');
                 return;
             }
             
             try {
-                const response = await authFetch(`/api/order/${orderId}/cancel`, {
-                    method: 'POST'
+                const response = await authFetch('/api/approve/' + currentRunId, {
+                    method: 'POST',
+                    body: JSON.stringify({ approved: approved })
                 });
                 const result = await response.json();
                 
                 if (result.success) {
-                    addLog('Ордер отменён', 'success');
-                    document.getElementById('order-details').style.display = 'none';
-                } else {
-                    addLog('Ошибка отмены ордера', 'error');
+                    showToast(approved ? 'Подтверждено' : 'Отклонено', 'success');
+                    hideApproval();
                 }
             } catch (error) {
-                addLog(`Ошибка: ${error}`, 'error');
+                showToast('Ошибка: ' + error, 'error');
             }
+        }
+
+        // =====================================================
+        // UTILITIES
+        // =====================================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
         }
 
         function addLog(message, type = 'info') {
             const log = document.getElementById('activity-log');
             const time = new Date().toLocaleTimeString('ru-RU');
             const entry = document.createElement('div');
-            entry.className = `log-entry log-${type}`;
-            entry.innerHTML = `<span class="log-time">${time}</span> ${message}`;
+            entry.className = 'log-entry log-' + type;
+            entry.innerHTML = '<span class="log-time">' + time + '</span> ' + message;
             log.insertBefore(entry, log.firstChild);
             
-            while (log.children.length > 50) {
+            while (log.children.length > 100) {
                 log.removeChild(log.lastChild);
             }
         }
 
+        // =====================================================
+        // INIT
+        // =====================================================
         const storedToken = getStoredToken();
         if (storedToken) {
             initApp();
-        } else {
-            showAuthOverlay();
         }
+        // Если нет токена, auth-overlay уже виден, main-container скрыт
     </script>
 </body>
 </html>
