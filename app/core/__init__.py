@@ -28,6 +28,7 @@ from .deps import (
     get_current_active_user,
     get_admin_user,
     get_optional_user,
+    get_optional_user_ws,
 )
 from .security_middleware import SecurityMiddleware
 from .rate_limit import RateLimiter, RateLimitMiddleware, rate_limiter
@@ -59,6 +60,7 @@ __all__ = [
     "get_current_active_user",
     "get_admin_user",
     "get_optional_user",
+    "get_optional_user_ws",
     "SecurityMiddleware",
     "RateLimiter",
     "RateLimitMiddleware",

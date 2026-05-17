@@ -143,6 +143,33 @@ Backup автоматически монтируются в `./backups:/app/back
 
 ---
 
+## WebSocket Authentication
+
+**Файл:** `deps.py`
+
+WebSocket соединения не поддерживают стандартный HTTP Bearer authentication. Для аутентификации WebSocket используется передача токена через query-параметр.
+
+### Использование
+
+```javascript
+// Подключение с токеном
+const ws = new WebSocket(`ws://localhost:8000/ws?token=${accessToken}`);
+```
+
+### Функции
+
+| Функция | Назначение |
+|---------|------------|
+| `get_optional_user_ws` | Опциональная аутентификация для WebSocket |
+| `_extract_token_from_websocket` | Извлечение токена из WebSocket |
+
+### Источники токена
+
+1. Query-параметр `token` (рекомендуется)
+2. `Sec-WebSocket-Protocol` header с префиксом `Bearer.`
+
+---
+
 ## Валидация конфигурации
 
 При запуске `validate_config()` проверяет:

@@ -1,14 +1,56 @@
 """FastAPI dependencies for authentication and authorization."""
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, Union
 
 from ..database.session import SessionLocal, get_db
 from ..database.security_models import User
 from .auth import validate_access_token
 
 security = HTTPBearer(auto_error=False)
+
+
+def _extract_token_from_websocket(websocket: WebSocket) -> Optional[str]:
+    """Extract JWT token from WebSocket connection.
+
+    Tries to get token from:
+    1. Query parameter 'token'
+    2. Sec-WebSocket-Protocol header (subprotocol)
+    """
+    # Try query parameter first
+    token = websocket.query_params.get("token")
+    if token:
+        return token
+
+    # Try Sec-WebSocket-Protocol header (some clients pass token there)
+    protocols = websocket.headers.get("sec-websocket-protocol", "")
+    for protocol in protocols.split(","):
+        protocol = protocol.strip()
+        if protocol.startswith("Bearer."):
+            return protocol[7:]  # Remove "Bearer." prefix
+
+    return None
+
+
+async def get_optional_user_ws(
+    websocket: WebSocket,
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """Get optional user for WebSocket connections.
+
+    Unlike HTTP endpoints, WebSocket doesn't work with HTTPBearer.
+    Token should be passed via query parameter 'token'.
+    """
+    token = _extract_token_from_websocket(websocket)
+    if not token:
+        return None
+
+    payload = validate_access_token(token)
+    if not payload:
+        return None
+
+    return db.query(User).filter(User.id == payload.user_id).first()
 
 
 async def get_current_user(
