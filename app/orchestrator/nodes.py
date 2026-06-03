@@ -7,7 +7,7 @@ from ..ai_agents.intent_classifier import IntentClassifier
 from ..ai_agents.response_generator import ResponseGenerator
 from ..ai_agents.payment_parser import PaymentParser
 from ..ai_agents.fraud_analyzer import FraudAnalyzer
-from ..integrations.processing_client import processing_client
+from ..integrations.zavod_client import zavod_client
 
 # AI agents (lazy initialization)
 _intent_classifier = None
@@ -248,37 +248,33 @@ async def await_risk_approval(state: P2PAutomationState) -> P2PAutomationState:
     return state
 
 async def submit_to_processing(state: P2PAutomationState) -> P2PAutomationState:
-    """Submit transaction to processing API."""
+    """Submit transaction to Zavod API."""
     if not state.get("risk_approved"):
-        logger.info("Risk not approved, skipping processing")
+        logger.info("Risk not approved, skipping Zavod creation")
         return state
     
-    logger.info("Submitting to processing...")
+    logger.info("Creating order on Zavod...")
     
     try:
         order_data = state.get("order_data", {})
         payment_data = state.get("payment_data", {})
         
-        result = await processing_client.submit_transaction({
+        result = await zavod_client.create_order({
             "order_id": state.get("order_id"),
-            "amount": payment_data.get("amount"),
-            "currency": payment_data.get("currency"),
+            "amount": payment_data.get("amount") or order_data.get("amount"),
+            "currency": payment_data.get("currency") or order_data.get("currency"),
             "card_number": payment_data.get("card_number"),
-            "payment_proof_url": state.get("payment_proof_path"),
-            "extra_metadata": {
-                "risk_score": state.get("risk_score"),
-                "risk_level": state.get("risk_level")
-            }
+            "bank": payment_data.get("bank")
         })
         
-        state["processing_id"] = result.get("processing_id")
+        state["processing_id"] = result.get("zavod_order_id")
         state["processing_status"] = result.get("status")
         state["current_step"] = "submit_to_processing"
         
-        logger.info(f"Submitted to processing: {state['processing_id']}")
+        logger.info(f"Order created on Zavod: {state['processing_id']}")
     
     except Exception as e:
-        logger.error(f"Processing submission failed: {e}")
+        logger.error(f"Zavod submission failed: {e}")
         state["error"] = str(e)
     
     return state

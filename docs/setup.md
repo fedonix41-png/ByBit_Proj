@@ -234,3 +234,23 @@ crontab -e
 При запуске приложение автоматически проверяет:
 - JWT_SECRET_KEY — не должен быть default значением
 - ALLOWED_ORIGINS — не должен быть `*` в production
+
+## Тестирование
+
+### Структура тестов
+- `tests/conftest.py` — Общие fixtures (event_loop, mock_settings, mock_db_session, mock_bybit_client)
+- `tests/unit/ai_agents/` — Тесты AI-агентов
+- `tests/unit/orchestrator/` — Тесты оркестратора
+
+### Запуск тестов
+
+```bash
+# Установка зависимостей для тестов
+pip install -e ".[dev]"
+
+# Запуск всех тестов
+pytest
+
+# Запуск с покрытием
+pytest --cov=app --cov-report=html
+```

@@ -6,8 +6,8 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                      ВНЕШНИЕ СЕРВИСЫ                             │
 ├─────────────┬─────────────┬─────────────┬─────────────────────────┤
-│  Telegram   │   Bybit     │     AI      │   Processing           │
-│    API      │  P2P API    │  Providers  │     API (mock)         │
+│  Telegram   │   Bybit     │     AI      │     Zavod Platform      │
+│    API      │  P2P API    │  Providers  │  (Vue.js web parsing/API)│
 └──────┬──────┴──────┬──────┴──────┬──────┴─────────────────────────┘
        │             │             │
        ▼             ▼             ▼
@@ -50,12 +50,12 @@
         ┌────────────────────┼────────────────────┐
         ▼                    ▼                    ▼
 ┌──────────────┐    ┌────────────────┐    ┌────────────────┐
-│  AI-агенты   │    │ Bybit клиент   │    │  Processing    │
-│ (ai_agents/) │    │(bybit_client)  │    │    клиент      │
+│  AI-агенты   │    │ Bybit клиент   │    │  Zavod клиент  │
+│ (ai_agents/) │    │(bybit_client)  │    │(zavod_client)  │
 ├──────────────┤    ├────────────────┤    ├────────────────┤
-│ IntentClass. │    │ testnet/prod   │    │ mock-режим     │
-│ IntentRouter │    │ mock fallback  │    │                │
-│ ResponseGen  │    │                │    │                │
+│ IntentClass. │    │ testnet/prod   │    │ Авторизация    │
+│ IntentRouter │    │                │    │ Парсинг заявок │
+│ ResponseGen  │    │                │    │ Выгрузка чеков │
 │ PaymentPars. │    │                │    │                │
 │ FraudAnalyz. │    │                │    │                │
 └──────────────┘    └────────────────┘    └────────────────┘
@@ -138,7 +138,7 @@
     │
     ▼
 ┌──────────────────┐
-│submit_processing │
+│create_zavod_order│
 └────────┬─────────┘
          │
          ▼
@@ -171,26 +171,26 @@
       Orchestrator
            │
            ▼
-   ┌─────────────────┐
-   │ classify_intent │ ← IntentClassifier (AI)
-   └────────┬────────┘
-            │
-            ▼
- ┌───────────────────┐
- │ generate_response │ ← ResponseGenerator (AI)
- └────────┬──────────┘
+    ┌─────────────────┐
+    │ classify_intent │ ← IntentClassifier (AI)
+    └────────┬────────┘
+             │
+             ▼
+  ┌───────────────────┐
+  │ extract_details   │ ← AI Extract (Сбор реквизитов)
+  └────────┬──────────┘
+           │
+           ▼
+ ┌─────────────────────┐
+ │ await_approval      │ ← INTERRUPT: Оператор одобряет реквизиты
+ └────────┬────────────┘
           │
-          ▼
-┌─────────────────────┐
-│ await_approval      │ ← INTERRUPT: ждёт человека
-└────────┬────────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
- [approve]  [reject]
-    │
-    ▼
- send_response → Bybit API
+     ┌────┴────┐
+     ▼         ▼
+  [approve]  [reject]
+     │
+     ▼
+  create_zavod_order → Zavod API/Parser
 ```
 
 ## Связи между модулями
