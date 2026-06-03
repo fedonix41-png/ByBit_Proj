@@ -17,6 +17,7 @@ from config import (
     REDIS_ENABLED,
     WEBHOOK_URL,
     MESSAGE_MAX_LENGTH,
+    ADMIN_TELEGRAM_IDS,
     validate_config,
 )
 
@@ -38,5 +39,6 @@ __all__ = [
     "REDIS_ENABLED",
     "WEBHOOK_URL",
     "MESSAGE_MAX_LENGTH",
+    "ADMIN_TELEGRAM_IDS",
     "validate_config",
 ]

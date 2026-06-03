@@ -15,6 +15,35 @@ from loguru import logger
 from app.infrastructure.bridge.p2p_bridge import p2p_bridge
 from app.infrastructure.handlers.message_processor import message_processor, ProcessingResult
 from app.infrastructure.handlers.spam_detector import spam_detector
+from app.config import ADMIN_TELEGRAM_IDS
+import functools
+
+def admin_only(func):
+    """Decorator to restrict command/callback access to admins only."""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        # Support both standalone functions (update, context) and class methods (self, update, context)
+        update = None
+        for arg in args:
+            if isinstance(arg, Update):
+                update = arg
+                break
+        
+        if not update and 'update' in kwargs:
+            update = kwargs['update']
+            
+        if not update:
+            return await func(*args, **kwargs)
+            
+        user_id = update.effective_user.id
+        if user_id not in ADMIN_TELEGRAM_IDS:
+            if update.callback_query:
+                await update.callback_query.answer("⛔ Ошибка доступа: требуются права администратора", show_alert=True)
+            elif update.message:
+                await update.message.reply_text("⛔ Эта команда доступна только администраторам.")
+            return
+        return await func(*args, **kwargs)
+    return wrapper
 
 TEMP_VOICE_PATH = "/tmp/p2p_voice.ogg"
 TEMP_IMAGE_PATH = "/tmp/p2p_image.jpg"
@@ -292,6 +321,19 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.info(f"Image analysis: {analysis[:100]}...")
             except Exception as e:
                 logger.warning(f"Vision analysis failed: {e}")
+                
+        # Шаг 4: Пересылка фото операторам
+        if analysis and ("подозрительн" in analysis.lower() or "неясн" in analysis.lower()):
+            if p2p_bridge.telegram_bot:
+                from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+                markup = InlineKeyboardMarkup([[
+                    InlineKeyboardButton("✅ Принять", callback_data=f"admin_approve_photo_{user_id}"),
+                    InlineKeyboardButton("❌ Отклонить", callback_data=f"admin_reject_photo_{user_id}")
+                ]])
+                await p2p_bridge.telegram_bot.send_admin_alert(
+                    f"🚨 Требуется ручная проверка фото от @{username} ({user_id}):\n{analysis[:200]}",
+                    reply_markup=markup
+                )
         
         response = await p2p_bridge.process_photo_with_analysis(
             user_id=user_id,

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
     
     TELEGRAM_BOT_TOKEN: str = ""
+    ADMIN_TELEGRAM_IDS: str = ""  # Comma-separated list of admin user IDs
     
     BYBIT_API_KEY: str = ""
     BYBIT_API_SECRET: str = ""
@@ -83,6 +84,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Parse admin IDs
+try:
+    # Remove inline comments if present
+    admin_str = settings.ADMIN_TELEGRAM_IDS.split('#')[0]
+    ADMIN_TELEGRAM_IDS = [int(x.strip()) for x in admin_str.split(",") if x.strip()]
+except Exception:
+    ADMIN_TELEGRAM_IDS = []
 
 BYBIT_API_KEY = settings.BYBIT_API_KEY
 BYBIT_API_SECRET = settings.BYBIT_API_SECRET
@@ -160,6 +169,9 @@ def validate_config():
         print("⚠️  WARNING: BYBIT_TESTNET=False - Using PRODUCTION API!")
         print("   This will affect REAL funds. Make sure you know what you're doing!")
         print("   For development, always use BYBIT_TESTNET=True")
+
+# Telegram and Security exports
+ADMIN_TELEGRAM_IDS = ADMIN_TELEGRAM_IDS
 
 # JWT and Security exports
 JWT_SECRET_KEY = settings.JWT_SECRET_KEY

@@ -14,9 +14,10 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
 from app.infrastructure.interface.telegram_handlers import (
-    handle_text, handle_voice, handle_photo
+    handle_text, handle_voice, handle_photo, admin_only
 )
 from app.infrastructure.bridge.p2p_bridge import p2p_bridge
+from app.config import ADMIN_TELEGRAM_IDS
 
 
 class P2PTelegramBot:
@@ -39,6 +40,8 @@ class P2PTelegramBot:
         self.app.add_handler(CommandHandler("cancel", self._cmd_cancel))
         self.app.add_handler(CommandHandler("help", self._cmd_help))
         self.app.add_handler(CommandHandler("menu", self._cmd_menu))
+        self.app.add_handler(CommandHandler("admin", self._cmd_admin))
+        self.app.add_handler(CommandHandler("stats", self._cmd_stats))
         self.app.add_handler(CommandHandler("demo", self._cmd_demo))
         self.app.add_handler(CommandHandler("ask", self._cmd_ask))
         
@@ -54,19 +57,28 @@ class P2PTelegramBot:
         logger.debug("Telegram handlers registered")
     
     def _get_main_menu_keyboard(self) -> InlineKeyboardMarkup:
-        """Get main menu keyboard."""
+        """Get main menu keyboard (for clients)."""
         keyboard = [
             [
                 InlineKeyboardButton("💬 Задать вопрос AI", callback_data="ai_ask"),
                 InlineKeyboardButton("📊 Статус торговли", callback_data="menu_status")
             ],
             [
+                InlineKeyboardButton("ℹ️ О боте", callback_data="menu_about")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+
+    def _get_admin_menu_keyboard(self) -> InlineKeyboardMarkup:
+        """Get admin menu keyboard."""
+        keyboard = [
+            [
                 InlineKeyboardButton("🧠 Анализ P2P", callback_data="menu_p2p_analysis"),
                 InlineKeyboardButton("🛡️ Проверка мошенничества", callback_data="menu_fraud_check")
             ],
             [
                 InlineKeyboardButton("⚙️ Настройки", callback_data="menu_settings"),
-                InlineKeyboardButton("ℹ️ О боте", callback_data="menu_about")
+                InlineKeyboardButton("📊 Общая статистика", callback_data="admin_stats")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)
@@ -80,7 +92,7 @@ class P2PTelegramBot:
             ],
             [
                 InlineKeyboardButton("📊 Все предложения", callback_data="p2p_analysis_all"),
-                InlineKeyboardButton("↩️ Назад", callback_data="menu_main")
+                InlineKeyboardButton("↩️ Назад", callback_data="menu_admin")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)
@@ -94,7 +106,7 @@ class P2PTelegramBot:
             ],
             [
                 InlineKeyboardButton("📋 История проверок", callback_data="fraud_history"),
-                InlineKeyboardButton("↩️ Назад", callback_data="menu_main")
+                InlineKeyboardButton("↩️ Назад", callback_data="menu_admin")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)
@@ -108,7 +120,7 @@ class P2PTelegramBot:
             ],
             [
                 InlineKeyboardButton("📊 Баланс Bybit", callback_data="settings_bybit_balance"),
-                InlineKeyboardButton("↩️ Назад", callback_data="menu_main")
+                InlineKeyboardButton("↩️ Назад", callback_data="menu_admin")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)
@@ -155,12 +167,7 @@ class P2PTelegramBot:
         
         await update.message.reply_text(
             f"👋 Здравствуйте, {user_name}!\n\n"
-            "Я P2P-бот для торговли криптовалютой с AI-агентами.\n\n"
-            "Возможности:\n"
-            "• 💬 AI-диалог и консультации\n"
-            "• 🧠 Анализ P2P предложений\n"
-            "• 🛡️ Проверка на мошенничество\n"
-            "• 📊 Отслеживание статусов\n\n"
+            "Я P2P-бот для поддержки. Чем могу помочь?\n\n"
             "Выберите действие в меню:",
             reply_markup=self._get_main_menu_keyboard()
         )
@@ -175,6 +182,31 @@ class P2PTelegramBot:
             "Выберите действие:",
             reply_markup=self._get_main_menu_keyboard()
         )
+
+    @admin_only
+    async def _cmd_admin(self, update: Update, context):
+        """Handle /admin command - show admin menu."""
+        context.user_data["ai_mode"] = False
+        context.user_data["current_menu"] = "admin"
+        
+        await update.message.reply_text(
+            "🛠 **Панель управления оператора**\n\n"
+            "Выберите действие:",
+            reply_markup=self._get_admin_menu_keyboard()
+        )
+
+    @admin_only
+    async def _cmd_stats(self, update: Update, context):
+        """Handle /stats command - show P2P statistics."""
+        # TODO: Get real statistics from orchestrator
+        stats_text = (
+            "📊 **Статистика P2P (демо)**\n\n"
+            "• Активных ордеров: 3\n"
+            "• Успешных сделок за сегодня: 12\n"
+            "• Оборот: 1,500 USDT\n"
+            "• Профит: +45 USDT\n"
+        )
+        await update.message.reply_text(stats_text)
     
     async def _cmd_ask(self, update: Update, context):
         """Handle /ask command - direct access to AI chat."""
@@ -221,6 +253,17 @@ class P2PTelegramBot:
                 "📋 **Главное меню**\n\nВыберите действие:",
                 reply_markup=self._get_main_menu_keyboard()
             )
+            
+        elif data == "menu_admin":
+            if update.effective_user.id not in ADMIN_TELEGRAM_IDS:
+                await query.answer("⛔ Нет доступа", show_alert=True)
+                return
+            context.user_data["ai_mode"] = False
+            context.user_data["current_menu"] = "admin"
+            await query.edit_message_text(
+                "🛠 **Панель управления оператора**\n\nВыберите действие:",
+                reply_markup=self._get_admin_menu_keyboard()
+            )
         
         elif data == "ai_ask":
             context.user_data["ai_mode"] = True
@@ -243,6 +286,9 @@ class P2PTelegramBot:
             )
         
         elif data == "menu_p2p_analysis":
+            if update.effective_user.id not in ADMIN_TELEGRAM_IDS:
+                await query.answer("⛔ Нет доступа", show_alert=True)
+                return
             context.user_data["current_menu"] = "p2p_analysis"
             await query.edit_message_text(
                 "🧠 **Анализ P2P**\n\n"
@@ -260,6 +306,9 @@ class P2PTelegramBot:
             await self._handle_p2p_analysis(query, context, "all")
         
         elif data == "menu_fraud_check":
+            if update.effective_user.id not in ADMIN_TELEGRAM_IDS:
+                await query.answer("⛔ Нет доступа", show_alert=True)
+                return
             context.user_data["current_menu"] = "fraud_check"
             await query.edit_message_text(
                 "🛡️ **Проверка мошенничества**\n\n"
@@ -296,6 +345,9 @@ class P2PTelegramBot:
             await self._show_fraud_history(query, context)
         
         elif data == "menu_settings":
+            if update.effective_user.id not in ADMIN_TELEGRAM_IDS:
+                await query.answer("⛔ Нет доступа", show_alert=True)
+                return
             context.user_data["current_menu"] = "settings"
             await query.edit_message_text(
                 "⚙️ **Настройки**\n\n"
@@ -310,8 +362,17 @@ class P2PTelegramBot:
             await self._handle_language_settings(query, context)
         
         elif data == "settings_bybit_balance":
+            if update.effective_user.id not in ADMIN_TELEGRAM_IDS:
+                await query.answer("⛔ Нет доступа", show_alert=True)
+                return
             await self._handle_bybit_balance(query, context)
         
+        elif data == "admin_stats":
+            if update.effective_user.id not in ADMIN_TELEGRAM_IDS:
+                await query.answer("⛔ Нет доступа", show_alert=True)
+                return
+            await self._show_admin_stats_callback(query)
+            
         elif data == "menu_status":
             await self._show_status_callback(query)
         
@@ -585,6 +646,20 @@ class P2PTelegramBot:
         except Exception as e:
             logger.error(f"Error fetching Bybit balance: {e}")
         return {}
+        
+    async def _show_admin_stats_callback(self, query):
+        """Show stats in callback context."""
+        stats_text = (
+            "📊 **Статистика P2P (демо)**\n\n"
+            "• Активных ордеров: 3\n"
+            "• Успешных сделок за сегодня: 12\n"
+            "• Оборот: 1,500 USDT\n"
+            "• Профит: +45 USDT\n"
+        )
+        await query.edit_message_text(
+            stats_text,
+            reply_markup=self._get_back_keyboard("menu_admin")
+        )
     
     async def _show_status_callback(self, query):
         """Show status in callback context."""
@@ -677,14 +752,30 @@ class P2PTelegramBot:
             reply_markup=self._get_main_menu_keyboard()
         )
     
-    async def send_message(self, user_id: str, text: str):
+    async def send_message(self, user_id: str, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None):
         """Send message to user by ID."""
         try:
-            await self.app.bot.send_message(chat_id=int(user_id), text=text)
+            await self.app.bot.send_message(
+                chat_id=int(user_id), 
+                text=text,
+                reply_markup=reply_markup
+            )
             logger.debug(f"Message sent to user {user_id}")
         except Exception as e:
             logger.error(f"Failed to send message to {user_id}: {e}")
             raise
+            
+    async def send_admin_alert(self, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None):
+        """Send an alert to all configured administrators."""
+        if not ADMIN_TELEGRAM_IDS:
+            logger.warning("No ADMIN_TELEGRAM_IDS configured, cannot send admin alert.")
+            return
+            
+        for admin_id in ADMIN_TELEGRAM_IDS:
+            try:
+                await self.send_message(str(admin_id), text, reply_markup=reply_markup)
+            except Exception as e:
+                logger.error(f"Failed to send alert to admin {admin_id}: {e}")
     
     def run(self):
         """Run bot in polling mode with separate process."""
