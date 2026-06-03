@@ -43,6 +43,25 @@ GET  /api/runs                   # Все активные запуски
 GET  /api/run/{run_id}           # Детали запуска
 ```
 
+#### Admin API (только для admin-роли, `Depends(get_admin_user)`)
+
+```
+GET  /api/admin/stats            # Сводная статистика (ордера, пользователи, AI, нарушения)
+GET  /api/admin/violations       # Список нарушений + топ нарушителей (?limit=20)
+POST /api/admin/blacklist        # Блокировка/разблокировка Telegram пользователя
+GET  /api/admin/users            # Список зарегистрированных Telegram пользователей (?group=)
+```
+
+**Тело POST /api/admin/blacklist:**
+```json
+{
+  "telegram_id": 123456789,
+  "action": "block",
+  "reason": "Нарушение правил",
+  "expires_hours": 24
+}
+```
+
 ### WebSocket
 
 ```

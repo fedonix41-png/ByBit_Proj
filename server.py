@@ -4,6 +4,7 @@ import asyncio
 import os
 from datetime import datetime
 from typing import Dict, Set, Optional
+from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -654,3 +655,112 @@ async def trigger_shutdown(admin: User = Depends(get_admin_user)):
     """Trigger graceful shutdown (admin only)."""
     os.kill(os.getpid(), signal.SIGTERM)
     return {"status": "shutting down"}
+
+
+# ---------------------------------------------------------------------------
+# Admin API endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/admin/stats")
+async def admin_stats(admin: User = Depends(get_admin_user)):
+    """Aggregated real statistics for admin panel (admin only)."""
+    from app.infrastructure.interface.admin_service import get_admin_stats
+    stats = get_admin_stats()
+    return {"success": True, "data": stats}
+
+
+@app.get("/api/admin/violations")
+async def admin_violations(
+    limit: int = 20,
+    offset: int = 0,
+    admin: User = Depends(get_admin_user),
+):
+    """List recent violations with pagination (admin only)."""
+    from app.infrastructure.interface.admin_service import get_recent_violations, get_top_violators
+    violations = get_recent_violations(limit=limit)
+    top = get_top_violators(limit=5)
+    return {
+        "success": True,
+        "data": {
+            "recent": violations,
+            "top_violators": top,
+            "limit": limit,
+            "offset": offset,
+        }
+    }
+
+
+class BlacklistActionRequest(BaseModel):
+    telegram_id: int
+    action: str          # "block" | "unblock"
+    reason: Optional[str] = None
+    expires_hours: Optional[int] = None
+
+    class Config:
+        # Allow forward reference to Optional from models
+        pass
+
+
+@app.post("/api/admin/blacklist")
+async def admin_blacklist_action(
+    request: Request,
+    admin: User = Depends(get_admin_user),
+):
+    """Block or unblock a Telegram user (admin only)."""
+    from app.infrastructure.interface.admin_service import block_user, unblock_user
+    body = await request.json()
+    telegram_id = body.get("telegram_id")
+    action = body.get("action")
+    reason = body.get("reason", "Заблокирован администратором")
+    expires_hours = body.get("expires_hours")
+
+    if not telegram_id or action not in ("block", "unblock"):
+        raise HTTPException(status_code=400, detail="telegram_id and action ('block'|'unblock') required")
+
+    if action == "block":
+        success, msg = block_user(
+            telegram_id=int(telegram_id),
+            reason=reason,
+            created_by=admin.username,
+            expires_hours=expires_hours,
+        )
+    else:
+        success, msg = unblock_user(telegram_id=int(telegram_id))
+
+    if not success:
+        raise HTTPException(status_code=409, detail=msg)
+    return {"success": True, "message": msg}
+
+
+@app.get("/api/admin/users")
+async def admin_users(
+    group: Optional[str] = None,
+    limit: int = 50,
+    admin: User = Depends(get_admin_user),
+):
+    """List registered Telegram users (admin only)."""
+    from app.database.session import get_db_context
+    from app.database.models import TelegramUser as TGUser
+    try:
+        with get_db_context() as db:
+            q = db.query(TGUser)
+            if group:
+                q = q.filter(TGUser.group == group)
+            rows = q.order_by(TGUser.last_active_at.desc()).limit(limit).all()
+            data = [
+                {
+                    "telegram_id": r.telegram_id,
+                    "username": r.username,
+                    "first_name": r.first_name,
+                    "group": r.group,
+                    "is_blocked": r.is_blocked,
+                    "last_active_at": r.last_active_at.isoformat() if r.last_active_at else None,
+                    "first_seen_at": r.first_seen_at.isoformat() if r.first_seen_at else None,
+                }
+                for r in rows
+            ]
+        return {"success": True, "data": data, "count": len(data)}
+    except Exception as e:
+        logger.error(f"admin_users error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

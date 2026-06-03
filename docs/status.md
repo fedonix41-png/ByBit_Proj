@@ -17,7 +17,18 @@
 | Docker Compose / Redis | `docker-compose.yml` | ✅ Работает |
 
 ### Веб-интерфейс (UI & API)
-Все эндпоинты (в т.ч. авторизация JWT, rate limiting) и 5 основных вкладок UI работают штатно (списки ордеров, чат, аккаунт, создание объявлений).
+Все эндпоинты (в т.ч. авторизация JWT, rate limiting) и 5 основных вкладок UI работают штатно.
+
+### Telegram Bot — Admin-панель
+| Компонент | Файл | Статус |
+|-----------|------|--------|
+| Реальная статистика из БД | `admin_service.py` | ✅ |
+| Управление пользователями (block/unblock/group) | `bot.py` + `admin_service.py` | ✅ |
+| Рассылка всем / по группе | `bot.py` | ✅ |
+| Реестр Telegram-пользователей | `app/database/models.py` `TelegramUser` | ✅ |
+| FSM-диалоги для админ-ввода | `bot.py` | ✅ |
+| Статус бота (узнать uptime, DB, Redis) | `bot.py` + `admin_service.py` | ✅ |
+| Admin API эндпоинты (`/api/admin/*`) | `server.py` | ✅ |
 
 ### AI-агенты (Роль: Ассистент)
 | Агент | Статус | Примечание |

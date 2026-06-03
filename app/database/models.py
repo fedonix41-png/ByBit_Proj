@@ -189,4 +189,23 @@ class ScreenshotHash(Base):
     order = relationship("Order")
 
 
+class TelegramUser(Base):
+    """Registry of all Telegram bot users for broadcast and group management."""
+    __tablename__ = 'telegram_users'
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(String(50), unique=True, index=True, nullable=False)
+    username = Column(String(100), nullable=True)
+    first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+    # Group tag for targeted broadcast: 'all', 'vip', 'blocked', custom labels
+    group = Column(String(50), default='all', nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_blocked = Column(Boolean, default=False)
+    language_code = Column(String(10), nullable=True)
+    first_seen_at = Column(DateTime, default=datetime.utcnow)
+    last_active_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    meta_info = Column(JSON, nullable=True)
+
+
 from .security_models import User, UserSession, SecurityAuditLog, ApiKey
