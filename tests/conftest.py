@@ -46,10 +46,65 @@ def mock_db_session():
 def mock_bybit_client():
     """Mock Bybit API client."""
     client = MagicMock()
-    client.get_ads_list = AsyncMock(return_value={"result": {"items": []}})
-    client.send_message = AsyncMock(return_value={"result": {}})
-    client.get_account_information = AsyncMock(return_value={"result": {"memberId": "test"}})
+    # These methods are synchronous in BybitClient
+    client.get_ads_list = MagicMock(return_value=[])
+    client.create_ad = MagicMock(return_value="AD_123")
+    client.get_online_ads = MagicMock(return_value=[])
+    client.get_ad_details = MagicMock(return_value={"ad_id": "AD_123"})
+    client.update_ad = MagicMock(return_value=True)
+    client.cancel_order = MagicMock(return_value=True)
+    client.get_chat_messages = MagicMock(return_value=[])
+    client.send_chat_message = MagicMock(return_value=True)
+    client.get_balance = MagicMock(return_value=[])
+    client.get_payment_methods = MagicMock(return_value=[])
+    client.get_account_information = MagicMock(return_value={"memberId": "test"})
+    client.get_counterparty_info = MagicMock(return_value={"nickname": "TestUser"})
+    client.get_order_details = MagicMock(return_value={"order_id": "TEST-ORDER-123"})
+    client.confirm_payment = MagicMock(return_value=True)
+    client.get_trade_history = MagicMock(return_value=[])
+    client.get_orders = MagicMock(return_value=[])
+    client.get_pending_orders = MagicMock(return_value=[])
+    client.mark_as_paid = MagicMock(return_value=True)
+    client.release_assets = MagicMock(return_value=True)
     return client
+
+
+@pytest.fixture
+def mock_user():
+    """Mock authenticated user."""
+    from app.database.security_models import User
+    return User(
+        id=1,
+        username="test_user",
+        email="test@example.com",
+        password_hash="fake_hash",
+        role="user",
+        is_active=True
+    )
+
+
+@pytest.fixture
+def test_client(mock_user, mock_bybit_client):
+    """Test client for FastAPI app with overridden dependencies."""
+    from fastapi.testclient import TestClient
+    from server import app
+    from app.core import get_current_user
+
+    # Override authentication
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+
+    # Patch the global bybit_client instance in server.py
+    with patch("server.bybit_client", mock_bybit_client):
+        with TestClient(app) as client:
+            yield client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def auth_headers():
+    """Headers for authorized requests (though get_current_user is overridden)."""
+    return {"Authorization": "Bearer mock_token"}
 
 
 @pytest.fixture

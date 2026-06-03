@@ -1,10 +1,8 @@
 """Response generation AI agent."""
 import json
-import logging
+from loguru import logger
 from typing import Dict, Any
 from .base_agent import BaseAIAgent
-
-logger = logging.getLogger(__name__)
 
 class ResponseGenerator(BaseAIAgent):
     """Generate responses to customer messages."""
@@ -45,7 +43,7 @@ class ResponseGenerator(BaseAIAgent):
             parsed = json.loads(result["content"])
             
             response_text = parsed.get("response", "")
-            logger.info(f"Response generated for intent '{intent}': {response_text[:50]}...")
+            logger.debug(f"Response generated for intent '{intent}': {response_text[:50]}...")
             
             return {
                 "response": response_text,

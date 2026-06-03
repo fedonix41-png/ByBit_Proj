@@ -30,14 +30,15 @@ from app.database.security_models import User
 import config
 
 logger = get_logger(__name__)
-shutdown_event = asyncio.Event()
+shutdown_event = None
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 
 def signal_handler(sig, frame):
     """Handle shutdown signals gracefully."""
     logger.info(f"Received signal {sig}, initiating graceful shutdown...")
-    shutdown_event.set()
+    if shutdown_event:
+        shutdown_event.set()
 
 
 def check_database_connection():
@@ -94,6 +95,8 @@ active_runs: Dict[str, dict] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan with startup/shutdown handlers."""
+    global shutdown_event
+    shutdown_event = asyncio.Event()
     setup_logging(log_level="DEBUG" if DEBUG else "INFO", log_file="logs/app.log")
     logger.info("Starting P2P Automation Server...")
     
@@ -108,8 +111,11 @@ async def lifespan(app: FastAPI):
     if not db_ok:
         logger.warning("Database check failed - continuing anyway")
     
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
+    try:
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+    except ValueError:
+        logger.debug("Could not set signal handlers, likely not running in main thread")
     
     try:
         from app.database import init_db

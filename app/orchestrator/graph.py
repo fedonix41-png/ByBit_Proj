@@ -1,5 +1,5 @@
 """Main P2P automation graph."""
-import logging
+from loguru import logger
 from pathlib import Path
 from typing import Optional
 from langgraph.graph import StateGraph, END
@@ -27,8 +27,6 @@ from .edges import (
     should_submit_processing,
     has_error
 )
-
-logger = logging.getLogger(__name__)
 
 _db_path: str = "/app/data/checkpoints/p2p_state.db"
 _checkpointer_cm = None

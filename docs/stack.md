@@ -115,6 +115,9 @@ llm = ChatOpenAI(
 | python-dotenv | ≥1.0.1 | Загрузка .env |
 | loguru | ≥0.7.0 | Логирование |
 | tenacity | ≥8.0.0 | Ретраи (используется в P2P Bridge) |
+| pyjwt | ≥2.8.0 | Работа с JWT токенами |
+| passlib | ≥1.7.4 | Хеширование паролей |
+| email-validator | ≥2.1.0 | Валидация email |
 
 ---
 
@@ -193,5 +196,8 @@ dependencies = [
     "pytesseract>=0.3.10",
     "loguru>=0.7.0",
     "tenacity>=8.0.0",
+    "pyjwt[crypto]>=2.8.0",
+    "passlib[bcrypt]>=1.7.4",
+    "email-validator>=2.1.0"
 ]
 ```

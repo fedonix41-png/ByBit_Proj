@@ -8,8 +8,6 @@ tests/
 ├── unit/
 │   ├── ai_agents/        # Тесты AI-агентов
 │   └── orchestrator/     # Тесты оркестратора
-└── integration/
-    └── api/              # Интеграционные тесты API
 ```
 
 ## Запуск тестов

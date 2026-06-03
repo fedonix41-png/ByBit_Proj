@@ -1,10 +1,8 @@
 """Processing API client."""
-import logging
+from loguru import logger
 import os
 import httpx
 from typing import Dict, Any, Optional
-
-logger = logging.getLogger(__name__)
 
 class ProcessingClient:
     """Client for external processing API."""

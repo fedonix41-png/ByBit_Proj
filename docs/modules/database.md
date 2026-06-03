@@ -132,6 +132,22 @@ class AIInteraction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 ```
 
+### ScreenshotHash
+
+Хранение хешей изображений для обнаружения дубликатов чеков.
+
+```python
+class ScreenshotHash(Base):
+    __tablename__ = 'screenshot_hashes'
+    
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey('orders.id'), index=True, nullable=False)
+    image_hash = Column(String(64), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    order = relationship("Order")
+```
+
 ---
 
 ## Session

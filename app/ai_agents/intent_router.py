@@ -1,10 +1,8 @@
 """Intent router for determining response type."""
 import json
-import logging
+from loguru import logger
 from typing import Dict, Any, Literal
 from .base_agent import BaseAIAgent
-
-logger = logging.getLogger(__name__)
 
 ResponseType = Literal["text", "action", "info"]
 
@@ -56,7 +54,7 @@ class IntentRouter(BaseAIAgent):
             result = await self.generate(system_prompt, user_prompt, temperature=0.2, json_mode=True)
             parsed = json.loads(result["content"])
             
-            logger.info(f"Routed to: {parsed.get('response_type')} -> {parsed.get('routing', {}).get('node')}")
+            logger.debug(f"Routed to: {parsed.get('response_type')} -> {parsed.get('routing', {}).get('node')}")
             
             return {
                 "response_type": parsed.get("response_type", "text"),

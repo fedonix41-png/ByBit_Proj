@@ -1,12 +1,10 @@
 """Base AI agent with multi-provider support."""
 import os
-import logging
+from loguru import logger
 import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from enum import Enum
-
-logger = logging.getLogger(__name__)
 
 class AIProvider(Enum):
     OPENAI = "openai"
@@ -160,6 +158,9 @@ class BaseAIAgent(ABC):
             latency_ms = int((time.perf_counter() - start_time) * 1000)
             
             tokens_used = result.get("tokens", 0)
+            
+            logger.debug(f"AI response [{self.provider.value}/{self.model}]: {result.get('content')}")
+            
             await self._log_interaction(
                 input_data=input_data,
                 output_data={"content": result.get("content"), "model": result.get("model")},

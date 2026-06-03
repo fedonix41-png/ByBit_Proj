@@ -1,12 +1,10 @@
 """Payment proof parser with OCR."""
 import json
-import logging
+from loguru import logger
 from typing import Dict, Any
 from PIL import Image
 import pytesseract
 from .base_agent import BaseAIAgent
-
-logger = logging.getLogger(__name__)
 
 class PaymentParser(BaseAIAgent):
     """Parse payment proof screenshots using OCR + AI."""
@@ -43,7 +41,7 @@ class PaymentParser(BaseAIAgent):
         try:
             # Step 1: OCR
             ocr_text = await self._extract_text(image_path)
-            logger.info(f"OCR extracted {len(ocr_text)} characters")
+            logger.debug(f"OCR extracted {len(ocr_text)} characters")
             
             # Step 2: AI parsing
             parsed_data = await self._parse_with_ai(ocr_text, expected_amount, expected_currency)
@@ -84,7 +82,7 @@ class PaymentParser(BaseAIAgent):
             result = await self.generate(system_prompt, user_prompt, temperature=0.1, json_mode=True)
             parsed = json.loads(result["content"])
             
-            logger.info(f"AI parsed: amount={parsed.get('amount')}, confidence={parsed.get('confidence')}")
+            logger.debug(f"AI parsed: amount={parsed.get('amount')}, confidence={parsed.get('confidence')}")
             
             return {
                 "amount": parsed.get("amount"),

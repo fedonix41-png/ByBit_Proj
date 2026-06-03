@@ -1,14 +1,11 @@
 """Main orchestrator for P2P automation."""
-import logging
+from loguru import logger
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from .graph import get_p2p_graph
 from .state import P2PAutomationState
 from ..database.session import get_db_context as get_db
 from ..database.models import Order, Message, Decision
-
-logger = logging.getLogger(__name__)
-
 class P2POrchestrator:
     """Main orchestrator for P2P automation."""
     

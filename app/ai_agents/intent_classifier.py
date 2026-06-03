@@ -1,10 +1,8 @@
 """Intent classification AI agent."""
 import json
-import logging
+from loguru import logger
 from typing import Dict, Any
 from .base_agent import BaseAIAgent
-
-logger = logging.getLogger(__name__)
 
 class IntentClassifier(BaseAIAgent):
     """Classify customer message intent."""
@@ -55,7 +53,7 @@ class IntentClassifier(BaseAIAgent):
             result = await self.generate(system_prompt, user_prompt, temperature=0.3, json_mode=True)
             parsed = json.loads(result["content"])
             
-            logger.info(f"Intent classified: {parsed.get('intent')} (confidence: {parsed.get('confidence')})")
+            logger.debug(f"Intent classified: {parsed.get('intent')} (confidence: {parsed.get('confidence')})")
             
             return {
                 "intent": parsed.get("intent", "unknown"),

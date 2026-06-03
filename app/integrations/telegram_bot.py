@@ -1,5 +1,5 @@
 """Telegram Bot integration for P2P automation."""
-import logging
+from loguru import logger
 import os
 import asyncio
 import multiprocessing
@@ -8,8 +8,6 @@ import sys
 from typing import Optional
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-
-logger = logging.getLogger(__name__)
 
 class P2PTelegramBot:
     """Telegram Bot for customer communication."""

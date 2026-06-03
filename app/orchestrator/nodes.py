@@ -1,5 +1,5 @@
 """Graph nodes for P2P automation."""
-import logging
+from loguru import logger
 from typing import Dict, Any
 from datetime import datetime
 from .state import P2PAutomationState
@@ -8,8 +8,6 @@ from ..ai_agents.response_generator import ResponseGenerator
 from ..ai_agents.payment_parser import PaymentParser
 from ..ai_agents.fraud_analyzer import FraudAnalyzer
 from ..integrations.processing_client import processing_client
-
-logger = logging.getLogger(__name__)
 
 # AI agents (lazy initialization)
 _intent_classifier = None

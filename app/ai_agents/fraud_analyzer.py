@@ -1,14 +1,12 @@
 """Fraud risk analysis AI agent."""
 import json
-import logging
+from loguru import logger
 import hashlib
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from .base_agent import BaseAIAgent
-
-logger = logging.getLogger(__name__)
 
 BIN_CODES = {
     '4276': 'Сбербанк',
@@ -669,7 +667,7 @@ class FraudAnalyzer(BaseAIAgent):
                 )
                 self._db_session.add(hash_record)
                 self._db_session.commit()
-                logger.info(f"Saved screenshot hash for order {order_id}")
+                logger.debug(f"Saved screenshot hash for order {order_id}")
         except Exception as e:
             logger.error(f"Failed to save screenshot hash: {e}")
             self._db_session.rollback()
@@ -684,7 +682,7 @@ class FraudAnalyzer(BaseAIAgent):
             result = await self.generate(system_prompt, user_prompt, temperature=0.2, json_mode=True)
             parsed = json.loads(result["content"])
             
-            logger.info(f"AI fraud analysis: risk_score={parsed.get('ai_risk_score')}")
+            logger.debug(f"AI fraud analysis: risk_score={parsed.get('ai_risk_score')}")
             
             return {
                 "ai_risk_score": parsed.get("ai_risk_score", 0.5),

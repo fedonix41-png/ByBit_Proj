@@ -12,7 +12,9 @@
 GET  /api/ads                    # Список объявлений
 GET  /api/order/{order_id}       # Детали ордера
 POST /api/order/{order_id}/cancel      # Отмена ордера
-POST /api/order/{order_id}/confirm_payment  # Подтверждение платежа
+POST /api/order/{order_id}/confirm_payment  # Подтверждение платежа (для старых интеграций)
+POST /api/order/{order_id}/mark_paid   # Отметить ордер оплаченным (buyer)
+POST /api/order/{order_id}/release     # Отпустить криптовалюту (seller)
 ```
 
 #### Чат
@@ -91,85 +93,15 @@ curl -X POST http://127.0.0.1:8000/api/start_monitor \
 
 **Аутентификация:** API Key + API Secret (HMAC)
 
-### Используемые эндпоинты
-
-| Эндпоинт | Метод | Назначение |
-|----------|-------|------------|
-| `/v5/p2p/item/query` | POST | Список объявлений |
-| `/v5/p2p/order/info` | POST | Информация об ордере |
-| `/v5/p2p/order/message/query` | POST | История чата |
-| `/v5/p2p/order/message/send` | POST | Отправка сообщения |
-| `/v5/p2p/order/pay` | POST | Подтверждение платежа |
-| `/v5/p2p/order/cancel` | POST | Отмена ордера |
-| `/v5/account/wallet-balance` | GET | Баланс |
-
-### SDK
-
-```bash
-uv pip install bybit-p2p
-```
-
-### Fallback
-
-При отсутствии SDK или ошибках API — автоматический переход в mock-режим.
+Полное описание методов клиента и SDK `bybit-p2p` находится в [docs/modules/bybit_client.md](modules/bybit_client.md).
 
 ---
 
 ## AI Providers
 
-### OpenAI
+Детальная настройка переменных окружения для AI-провайдеров (OpenAI, Anthropic, Groq, Together, Mistral, Local, OpenRouter) перенесена в [docs/setup.md](setup.md#ai-провайдеры).
 
-**Используется для:**
-- Текст: `gpt-4o-mini` (IntentClassifier, ResponseGenerator)
-- Аудио: `whisper-1` (транскрипция голосовых)
-- Изображения: `gpt-4o` (Vision для скриншотов)
-
-**Переменные:**
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL` (default: `gpt-4o-mini`)
-- `OPENAI_AUDIO_MODEL` (default: `whisper-1`)
-- `OPENAI_VISION_MODEL` (default: `gpt-4o`)
-
-### Другие провайдеры
-
-| Провайдер | Переменная | Модель (default) |
-|-----------|------------|------------------|
-| Anthropic | `ANTHROPIC_API_KEY` | `claude-3-sonnet-20240229` |
-| Groq | `GROQ_API_KEY` | `mixtral-8x7b-32768` |
-| Together | `TOGETHER_API_KEY` | `mistralai/Mixtral-8x7B-Instruct-v0.1` |
-| Mistral | `MISTRAL_API_KEY` | `mistral-large-latest` |
-| Local (Ollama) | `LOCAL_LLM_URL` | `llama-3-8b` |
-
-### OpenRouter.ai
-
-**Статус:** ✅ Реализован
-
-**Используется для:**
-- AI-диалог в Telegram-боте (/ask)
-- Vision для анализа изображений (модель `openai/gpt-4o`)
-- Альтернатива OpenAI для всех AI-агентов
-
-**Переменные:**
-- `OPENROUTER_API_KEY` — API ключ
-- `OPENROUTER_MODEL` — модель (default: `openai/gpt-4o-mini`)
-
-**Поддерживаемые модели:**
-- `openai/gpt-4o-mini` — текст
-- `openai/gpt-4o` — vision
-- `anthropic/claude-3-sonnet` — текст
-- `deepseek/deepseek-v4-flash` — текст
-- и другие модели OpenRouter
-
-**Использование:**
-```python
-from app.ai_agents.openrouter_adapter import OpenRouterClient
-
-client = OpenRouterClient()
-response = await client.generate(
-    prompt="Вопрос",
-    system="Ты помощник P2P торговли"
-)
-```
+Использование провайдеров в коде описано в [docs/modules/ai_agents.md](modules/ai_agents.md).
 
 ---
 
