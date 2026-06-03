@@ -10,6 +10,7 @@
 
 ```
 GET  /api/ads                    # Список объявлений
+PUT  /api/ads/{ad_id}            # Редактирование объявления (цена, лимиты)
 GET  /api/order/{order_id}       # Детали ордера
 POST /api/order/{order_id}/cancel      # Отмена ордера
 POST /api/order/{order_id}/confirm_payment  # Подтверждение платежа (для старых интеграций)
@@ -21,6 +22,8 @@ POST /api/order/{order_id}/release     # Отпустить криптовалю
 
 ```
 GET  /api/chat/{order_id}        # История чата
+POST /api/chat/{order_id}/send   # Отправка текстового сообщения
+POST /api/chat/{order_id}/upload # Загрузка файла (изображения/документа) в чат
 ```
 
 #### Баланс и история

@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Dict, Set, Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -265,6 +265,28 @@ async def send_chat_message(order_id: str, request: SendMessageRequest, current_
         return {"success": success, "message": "Message sent" if success else "Failed to send"}
     except Exception as e:
         logger.error(f"Error sending message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/{order_id}/upload")
+async def upload_chat_file(order_id: str, file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
+    """Upload a file to order chat (requires authentication)."""
+    try:
+        # Create a temporary file to save the uploaded content
+        import tempfile
+        import shutil
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+            
+        success = bybit_client.upload_chat_file(order_id, tmp_path)
+        
+        # Clean up
+        os.unlink(tmp_path)
+        
+        return {"success": success, "message": "File uploaded" if success else "Failed to upload file"}
+    except Exception as e:
+        logger.error(f"Error uploading file: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/balance")

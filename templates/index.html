@@ -64,6 +64,7 @@
         <nav class="tabs">
             <button class="tab-btn active" data-tab="ads" onclick="showTab('ads')">Объявления</button>
             <button class="tab-btn" data-tab="orders" onclick="showTab('orders')">Ордера</button>
+            <button class="tab-btn" data-tab="trade_history" onclick="showTab('trade_history')">История торгов</button>
             <button class="tab-btn" data-tab="chat" onclick="showTab('chat')">Чат</button>
             <button class="tab-btn" data-tab="account" onclick="showTab('account')">Аккаунт</button>
             <button class="tab-btn" data-tab="monitor" onclick="showTab('monitor')">Мониторинг</button>
@@ -152,6 +153,22 @@
             </div>
         </div>
 
+        <!-- Tab: Trade History -->
+        <div id="tab-trade_history" class="tab-content" style="display:none">
+            <div class="tab-header">
+                <h2>История торгов</h2>
+            </div>
+            
+            <div class="card">
+                <div class="card-actions">
+                    <button onclick="loadTradeHistory()" class="btn btn-secondary">Обновить</button>
+                </div>
+                <div id="trade-history-list" class="data-list">
+                    <p class="text-muted">Нажмите "Обновить" для загрузки истории</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Tab: Chat -->
         <div id="tab-chat" class="tab-content" style="display:none">
             <div class="tab-header">
@@ -178,6 +195,8 @@
                 </div>
                 
                 <div class="chat-input-area" id="chat-input-area" style="display:none">
+                    <input type="file" id="chat-file-input" style="display:none" onchange="uploadChatFile()">
+                    <button onclick="document.getElementById('chat-file-input').click()" class="btn btn-secondary">📎</button>
                     <input type="text" id="chat-input" class="form-input" placeholder="Введите сообщение...">
                     <button onclick="sendChatMessage()" class="btn btn-primary">Отправить</button>
                 </div>
@@ -342,6 +361,34 @@
                 <div class="modal-actions">
                     <button type="button" onclick="closeCreateAdModal()" class="btn btn-secondary">Отмена</button>
                     <button type="submit" class="btn btn-primary">Создать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Ad Modal -->
+    <div id="edit-ad-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Редактировать объявление</h2>
+            <form id="edit-ad-form" onsubmit="handleEditAd(event)">
+                <input type="hidden" id="edit-ad-id">
+                <div class="form-group">
+                    <label>Цена</label>
+                    <input type="number" id="edit-ad-price" class="form-input" step="0.01" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Мин. сумма</label>
+                        <input type="number" id="edit-ad-min-amount" class="form-input" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Макс. сумма</label>
+                        <input type="number" id="edit-ad-max-amount" class="form-input" step="0.01" required>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="closeEditAdModal()" class="btn btn-secondary">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
                 </div>
             </form>
         </div>
@@ -525,6 +572,7 @@
             switch(tabName) {
                 case 'ads': loadAds(); break;
                 case 'orders': loadOrders(); break;
+                case 'trade_history': loadTradeHistory(); break;
                 case 'chat': loadPendingOrdersForSelect('chat-order-select'); break;
                 case 'account': loadAccountInfo(); loadBalance(); break;
                 case 'monitor': loadPendingOrdersForSelect('monitor-order-select'); loadActiveRuns(); break;
@@ -766,8 +814,43 @@
             }
         }
 
-        function editAd(adId) {
-            showToast('Редактирование: ' + adId + ' (в разработке)', 'info');
+        async function editAd(adId) {
+            document.getElementById('edit-ad-id').value = adId;
+            document.getElementById('edit-ad-modal').classList.remove('hidden');
+        }
+
+        function closeEditAdModal() {
+            document.getElementById('edit-ad-modal').classList.add('hidden');
+            document.getElementById('edit-ad-form').reset();
+        }
+
+        async function handleEditAd(e) {
+            e.preventDefault();
+            
+            const adId = document.getElementById('edit-ad-id').value;
+            const data = {
+                price: parseFloat(document.getElementById('edit-ad-price').value),
+                min_amount: parseFloat(document.getElementById('edit-ad-min-amount').value),
+                max_amount: parseFloat(document.getElementById('edit-ad-max-amount').value)
+            };
+            
+            try {
+                const response = await authFetch('/api/ads/' + adId, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Объявление обновлено', 'success');
+                    closeEditAdModal();
+                    loadAds();
+                } else {
+                    showToast('Ошибка обновления', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
         }
 
         // =====================================================
@@ -840,6 +923,45 @@
         }
 
         // =====================================================
+        // TRADE HISTORY API
+        // =====================================================
+        async function loadTradeHistory() {
+            try {
+                const response = await authFetch('/api/trade_history');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderTradeHistory(result.data);
+                }
+            } catch (error) {
+                showToast('Ошибка загрузки истории торгов: ' + error, 'error');
+            }
+        }
+
+        function renderTradeHistory(history) {
+            const container = document.getElementById('trade-history-list');
+            if (!history || history.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет завершенных торгов</p>';
+                return;
+            }
+            
+            container.innerHTML = history.map(trade => `
+                <div class="data-item">
+                    <div class="data-header">
+                        <span class="data-id">${trade.orderId || trade.id}</span>
+                        <span class="data-status">Завершено</span>
+                    </div>
+                    <div class="data-details">
+                        ${trade.amount || '?'} ${trade.tokenId || 'USDT'} @ ${trade.price || '?'} ${trade.currencyId || 'RUB'}
+                    </div>
+                    <div class="data-details text-muted">
+                        Роль: ${trade.side === '1' ? 'Продажа' : 'Покупка'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // =====================================================
         // CHAT API
         // =====================================================
         async function loadChat() {
@@ -901,6 +1023,44 @@
                     showToast('Сообщение отправлено', 'success');
                 } else {
                     showToast('Ошибка отправки', 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка: ' + error, 'error');
+            }
+        }
+
+        async function uploadChatFile() {
+            const orderId = document.getElementById('chat-order-select').value;
+            const fileInput = document.getElementById('chat-file-input');
+            const file = fileInput.files[0];
+            
+            if (!orderId) {
+                showToast('Выберите ордер', 'warning');
+                return;
+            }
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                showToast('Загрузка файла...', 'info');
+                
+                // Construct options for authFetch manually because body is FormData
+                const token = getStoredToken();
+                const response = await fetch('/api/chat/' + orderId + '/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    fileInput.value = ''; // clear input
+                    loadChat();
+                    showToast('Файл загружен', 'success');
+                } else {
+                    showToast('Ошибка загрузки', 'error');
                 }
             } catch (error) {
                 showToast('Ошибка: ' + error, 'error');
